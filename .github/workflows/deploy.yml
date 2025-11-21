@@ -34,14 +34,17 @@ jobs:
             # Proje dizinine git
             cd /var/www/event-finder
             
-            # Git pull (eğer repo clone edilmişse)
+            # Git repo kontrolü ve hard reset
             if [ -d .git ]; then
-              echo "📥 Pulling latest changes..."
-              git pull origin main
+              echo "📥 Fetching latest changes..."
+              git fetch origin main
+              echo "🔄 Hard reset to origin/main..."
+              git reset --hard origin/main
+              git clean -fd
             else
-              echo "📋 Copying files..."
-              # Eğer git yoksa, dosyaları manuel kopyala
-              # Bu durumda GitHub Actions'tan dosyaları SCP ile kopyalayabiliriz
+              echo "❌ Git repository bulunamadı!"
+              echo "İlk kurulum için: git clone https://github.com/tugrul-kok/event-finder.git /var/www/event-finder"
+              exit 1
             fi
             
             # Virtual environment kontrolü ve aktif etme
