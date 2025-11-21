@@ -24,6 +24,26 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
+# Telegram bot thread (Gunicorn için - modül import edildiğinde başlat)
+_telegram_bot_thread = None
+
+def start_telegram_bot_thread():
+    """Telegram bot thread'ini başlat (Gunicorn için)"""
+    global _telegram_bot_thread
+    if _telegram_bot_thread is None or not _telegram_bot_thread.is_alive():
+        if TELEGRAM_BOT_TOKEN:
+            logger.info("Starting Telegram bot thread...")
+            _telegram_bot_thread = Thread(target=run_telegram_bot, daemon=True)
+            _telegram_bot_thread.start()
+            logger.info("Telegram bot thread started")
+        else:
+            logger.warning("TELEGRAM_BOT_TOKEN not found, Telegram bot will not start")
+
+# Gunicorn ile çalışırken bot'u başlat
+# Modül import edildiğinde çalışır
+if os.getenv('FLASK_ENV') != 'development':  # Production'da (Gunicorn) otomatik başlat
+    start_telegram_bot_thread()
+
 # MongoDB bağlantısı
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -835,9 +855,10 @@ def start_flask():
     app.run(host=host, port=port, debug=debug, use_reloader=False)
 
 if __name__ == '__main__':
+    # Development modunda çalıştırılıyorsa (python app.py)
     # Telegram bot'u ayrı thread'de çalıştır
-    bot_thread = Thread(target=run_telegram_bot, daemon=True)
-    bot_thread.start()
+    if not _telegram_bot_thread or not _telegram_bot_thread.is_alive():
+        start_telegram_bot_thread()
     
     # Flask API'yi ana thread'de çalıştır
     logger.info("Starting Flask API...")

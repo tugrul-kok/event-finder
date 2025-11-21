@@ -6,6 +6,12 @@ Based on the original rotiva project
 
 import os
 from dotenv import load_dotenv
+
+# Cache dizini ayarla (www-data için)
+CACHE_DIR = os.getenv('HF_HOME', '/var/www/.cache/huggingface')
+os.environ['HF_HOME'] = CACHE_DIR
+os.environ['TRANSFORMERS_CACHE'] = CACHE_DIR
+os.makedirs(CACHE_DIR, exist_ok=True)
 import google.generativeai as genai
 import logging
 from rag_retriever import FAISSRetriever
