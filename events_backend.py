@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from pymongo import MongoClient
 from datetime import datetime, timedelta
@@ -72,6 +72,69 @@ def check_mongodb():
     return True, None, None
 
 # ============ FLASK API ENDPOINTS ============
+
+# Web interface route
+@app.route('/')
+def index():
+    """Serve web interface"""
+    import os
+    web_dir = os.path.join(os.path.dirname(__file__), 'web')
+    if os.path.exists(web_dir):
+        return send_from_directory(web_dir, 'index.html')
+    else:
+        return jsonify({"message": "Web interface not found. API is running.", "endpoints": ["/api/chat", "/api/events", "/health"]}), 200
+
+@app.route('/<path:path>')
+def serve_static(path):
+    """Serve static files from web directory"""
+    import os
+    web_dir = os.path.join(os.path.dirname(__file__), 'web')
+    if os.path.exists(web_dir) and os.path.exists(os.path.join(web_dir, path)):
+        return send_from_directory(web_dir, path)
+    else:
+        return jsonify({"error": "Not found"}), 404
+
+# Chat API endpoint for web interface
+@app.route('/api/chat', methods=['POST'])
+def chat_api():
+    """Chat API endpoint for web interface - uses same RAG system as Telegram"""
+    try:
+        data = request.get_json()
+        user_message = data.get('message', '')
+        
+        if not user_message:
+            return jsonify({"success": False, "error": "Message is required"}), 400
+        
+        logger.info(f"Web chat API - message: {user_message}")
+        
+        # Use the same RAG engine as Telegram bot
+        rag_engine = get_rag_engine()
+        
+        if rag_engine:
+            try:
+                result = rag_engine.answer_question(
+                    query=user_message,
+                    city_filter='antalya',
+                    top_k=5
+                )
+                answer = result.get('answer', '')
+                if answer:
+                    return jsonify({"success": True, "answer": answer})
+            except Exception as e:
+                logger.error(f"RAG engine error in web API: {e}")
+                # Fallback to simple search
+                pass
+        
+        # Fallback: Simple search
+        params = parse_message(user_message)
+        events = search_events(params)
+        response = format_events_message(events, params)
+        
+        return jsonify({"success": True, "answer": response})
+        
+    except Exception as e:
+        logger.error(f"Chat API error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -505,7 +568,13 @@ def format_events_message(events, params):
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Bot başladığında gönderilen mesaj"""
     user = update.effective_user
-    welcome_message = f"Merhaba {user.first_name}! 🎉\n\n" \
+    user_name = user.first_name if user else "Kullanıcı"
+    user_id = user.id if user else "Unknown"
+    username = user.username if user and user.username else "No username"
+    
+    logger.info(f"User {user_name} (ID: {user_id}, @{username}) used /start command")
+    
+    welcome_message = f"Merhaba {user_name}! 🎉\n\n" \
                      f"Ben Antalya Etkinlik Botu. Antalya'da olan etkinlikleri bulmanıza yardımcı olabilirim.\n\n" \
                      f"📝 *Örnek sorular:*\n" \
                      f"• \"Bu hafta sonu konser var mı?\"\n" \
@@ -525,6 +594,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Yardım komutu"""
+    user = update.effective_user
+    user_name = user.first_name if user else "Unknown"
+    user_id = user.id if user else "Unknown"
+    username = user.username if user and user.username else "No username"
+    
+    logger.info(f"User {user_name} (ID: {user_id}, @{username}) used /help command")
+    
     help_text = "🤖 *Nasıl kullanılır?*\n\n" \
                 "Bana doğal dilde mesaj at, ben seni anlayacağım!\n\n" \
                 "📝 *Örnekler:*\n" \
@@ -579,9 +655,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Kullanıcı mesajlarını işler - RAG sistemi kullanır"""
     try:
         user_message = update.message.text
-        user_name = update.effective_user.first_name
+        user = update.effective_user
+        user_name = user.first_name if user else "Unknown"
+        user_id = user.id if user else "Unknown"
+        username = user.username if user and user.username else "No username"
         
-        logger.info(f"User {user_name} message: {user_message}")
+        logger.info(f"User {user_name} (ID: {user_id}, @{username}) message: {user_message}")
         
         # Try RAG engine first (semantic search with embeddings)
         rag_engine = get_rag_engine()

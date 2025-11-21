@@ -16,18 +16,33 @@ cat > /var/www/events/run_scraper.sh << 'EOF'
 #!/bin/bash
 
 # Events Scraper çalıştırma scripti
+# Her gece 02:00'de çalışır - Scraping + Embeddings refresh
+
 cd /var/www/events
 source venv/bin/activate
 
+echo "========================================" >> /var/log/events/scraper_cron.log
+echo "🚀 Scraper başlatıldı: $(date)" >> /var/log/events/scraper_cron.log
+echo "========================================" >> /var/log/events/scraper_cron.log
+
 # Scraper'ı çalıştır ve logla
-python3 scraper.py >> /var/log/events/scraper_cron.log 2>&1
+python3 scraper-script.py >> /var/log/events/scraper_cron.log 2>&1
+SCRAPER_EXIT=$?
 
 # Başarılı olursa timestamp yaz
-if [ $? -eq 0 ]; then
+if [ $SCRAPER_EXIT -eq 0 ]; then
     echo "✅ Scraper başarıyla tamamlandı: $(date)" >> /var/log/events/scraper_cron.log
+    
+    # RAG embeddings'i yenilemek için backend'i yeniden başlat
+    # Bu sayede yeni etkinlikler için embeddings oluşturulur
+    echo "🔄 Backend yeniden başlatılıyor (embeddings refresh için)..." >> /var/log/events/scraper_cron.log
+    systemctl restart events >> /var/log/events/scraper_cron.log 2>&1
+    echo "✅ Backend yeniden başlatıldı: $(date)" >> /var/log/events/scraper_cron.log
 else
     echo "❌ Scraper hatası: $(date)" >> /var/log/events/scraper_cron.log
 fi
+
+echo "========================================" >> /var/log/events/scraper_cron.log
 EOF
 
 # Script'e çalıştırma izni ver

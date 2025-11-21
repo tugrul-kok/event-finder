@@ -39,9 +39,15 @@ mkdir -p /var/log/events
 # 5. Dosyaları kopyala
 echo -e "${YELLOW}📋 Dosyalar kopyalanıyor...${NC}"
 cp events_backend.py $PROJECT_DIR/app.py
-cp scraper.py $PROJECT_DIR/
+cp scraper-script.py $PROJECT_DIR/scraper-script.py
+cp rag_engine.py $PROJECT_DIR/
+cp rag_retriever.py $PROJECT_DIR/
 cp requirements.txt $PROJECT_DIR/
-cp .env $PROJECT_DIR/
+cp .env $PROJECT_DIR/ 2>/dev/null || echo "⚠️  .env dosyası bulunamadı, manuel oluşturmanız gerekecek"
+
+# Web interface dosyalarını kopyala
+mkdir -p $PROJECT_DIR/web
+cp -r web/* $PROJECT_DIR/web/ 2>/dev/null || echo "⚠️  Web dosyaları bulunamadı"
 
 # 6. Virtual environment oluştur
 echo -e "${YELLOW}🐍 Python virtual environment oluşturuluyor...${NC}"
@@ -56,12 +62,71 @@ pip install -r requirements.txt
 
 # 8. Systemd service dosyasını kopyala
 echo -e "${YELLOW}⚙️  Systemd service ayarlanıyor...${NC}"
-cp events.service /etc/systemd/system/
+cp systemd-service.txt /etc/systemd/system/events.service
 systemctl daemon-reload
 
 # 9. Nginx konfigürasyonu
 echo -e "${YELLOW}🌐 Nginx ayarlanıyor...${NC}"
-cp nginx.conf /etc/nginx/sites-available/events
+# Nginx config'i oluştur
+cat > /etc/nginx/sites-available/events << 'NGINX_EOF'
+server {
+    listen 80;
+    server_name events.tugrul.app 65.21.182.26;
+    
+    client_max_body_size 10M;
+    
+    # Web interface (root)
+    location / {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    
+    # API endpoints
+    location /api {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # CORS headers
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization' always;
+        
+        if ($request_method = 'OPTIONS') {
+            return 204;
+        }
+    }
+    
+    # Health check endpoint
+    location /health {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+    
+    # Rate limiting (DDoS koruması)
+    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
+    limit_req zone=api_limit burst=20 nodelay;
+    
+    # Logs
+    access_log /var/log/nginx/events_access.log;
+    error_log /var/log/nginx/events_error.log;
+}
+NGINX_EOF
+
 ln -sf /etc/nginx/sites-available/events /etc/nginx/sites-enabled/
 nginx -t
 
@@ -73,8 +138,11 @@ chmod -R 755 $PROJECT_DIR
 
 # 11. Cron job'u kur
 echo -e "${YELLOW}🕐 Cron job kuruluyor...${NC}"
-chmod +x setup_cron.sh
-./setup_cron.sh
+chmod +x cron-setup.sh
+cp cron-setup.sh $PROJECT_DIR/
+cd $PROJECT_DIR
+./cron-setup.sh
+cd -
 
 # 12. Servisleri başlat
 echo -e "${YELLOW}🚀 Servisler başlatılıyor...${NC}"
@@ -82,20 +150,16 @@ systemctl restart $SERVICE_NAME
 systemctl enable $SERVICE_NAME
 systemctl restart nginx
 
-# 13. Örnek verilerle veritabanını doldur (ilk kurulum için)
-echo -e "${YELLOW}🌱 Veritabanı örnek verilerle dolduruluyor...${NC}"
+# 13. İlk scraping'i çalıştır (veritabanını doldur)
+echo -e "${YELLOW}🔍 İlk scraping başlatılıyor (veritabanını dolduracak)...${NC}"
 sleep 3
-curl -X POST http://localhost:5000/api/seed || echo "Seed endpoint'e ulaşılamadı (normal olabilir)"
-
-# 14. İlk scraping'i çalıştır
-echo -e "${YELLOW}🔍 İlk scraping başlatılıyor...${NC}"
 sudo -u www-data $PROJECT_DIR/run_scraper.sh &
 
 # 15. Durum kontrolü
 echo -e "${YELLOW}✅ Durum kontrol ediliyor...${NC}"
 sleep 2
 systemctl status $SERVICE_NAME --no-pager
-curl http://localhost:5000/health
+curl http://localhost:5001/health
 
 echo -e "${GREEN}✅ Deployment tamamlandı!${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -107,8 +171,9 @@ echo "1. Telegram Bot Token: nano /var/www/events/.env"
 echo "2. Gemini API Key: nano /var/www/events/.env"
 echo ""
 echo -e "${GREEN}🔗 URL'ler:${NC}"
-echo "  • API: http://your-domain.com/api"
-echo "  • Health: http://your-domain.com/health"
+echo "  • Web Interface: http://events.tugrul.app"
+echo "  • API: http://events.tugrul.app/api"
+echo "  • Health: http://events.tugrul.app/health"
 echo ""
 echo -e "${GREEN}🤖 Telegram Bot:${NC}"
 echo "  • Botunuzu Telegram'da bulun ve /start yazın"
