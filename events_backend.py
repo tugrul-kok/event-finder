@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
+# MongoDB bağlantısı
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+
 # Telegram bot thread (Gunicorn için - modül import edildiğinde başlat)
 _telegram_bot_thread = None
 
@@ -40,13 +44,9 @@ def start_telegram_bot_thread():
             logger.warning("TELEGRAM_BOT_TOKEN not found, Telegram bot will not start")
 
 # Gunicorn ile çalışırken bot'u başlat
-# Modül import edildiğinde çalışır
+# Modül import edildiğinde çalışır (TELEGRAM_BOT_TOKEN tanımlandıktan sonra)
 if os.getenv('FLASK_ENV') != 'development':  # Production'da (Gunicorn) otomatik başlat
     start_telegram_bot_thread()
-
-# MongoDB bağlantısı
-MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
 try:
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
