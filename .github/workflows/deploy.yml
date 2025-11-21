@@ -67,6 +67,12 @@ jobs:
               pip3 install -q -r requirements.txt
             fi
             
+            # events_backend.py'yi app.py olarak kopyala (eğer yoksa)
+            if [ ! -f app.py ] && [ -f events_backend.py ]; then
+              echo "📝 Creating app.py from events_backend.py..."
+              cp events_backend.py app.py
+            fi
+            
             # Dosya izinlerini düzelt
             echo "🔧 Setting permissions..."
             sudo chown -R www-data:www-data /var/www/event-finder
