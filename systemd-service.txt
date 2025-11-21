@@ -5,9 +5,9 @@ After=network.target
 [Service]
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/events
-Environment="PATH=/var/www/events/venv/bin"
-ExecStart=/var/www/events/venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5001 app:app --timeout 120 --access-logfile /var/log/events/access.log --error-logfile /var/log/events/error.log
+WorkingDirectory=/var/www/event-finder
+Environment="PATH=/var/www/event-finder/venv/bin"
+ExecStart=/var/www/event-finder/venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5001 app:app --timeout 120 --access-logfile /var/log/events/access.log --error-logfile /var/log/events/error.log
 
 [Install]
 WantedBy=multi-user.target
