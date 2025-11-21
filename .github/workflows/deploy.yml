@@ -44,13 +44,21 @@ jobs:
               # Bu durumda GitHub Actions'tan dosyaları SCP ile kopyalayabiliriz
             fi
             
-            # Virtual environment'ı aktif et
-            source venv/bin/activate
-            
-            # Requirements güncelle (eğer değiştiyse)
-            echo "📦 Updating Python packages..."
-            pip install -q --upgrade pip
-            pip install -q -r requirements.txt
+            # Virtual environment kontrolü ve aktif etme
+            if [ -d venv ]; then
+              echo "🐍 Virtual environment bulundu, aktif ediliyor..."
+              source venv/bin/activate
+              
+              # Requirements güncelle (eğer değiştiyse)
+              echo "📦 Updating Python packages..."
+              pip install -q --upgrade pip
+              pip install -q -r requirements.txt
+            else
+              echo "⚠️  Virtual environment bulunamadı, sistem Python kullanılıyor..."
+              echo "📦 Updating Python packages (system-wide)..."
+              pip3 install -q --upgrade pip
+              pip3 install -q -r requirements.txt
+            fi
             
             # Dosya izinlerini düzelt
             echo "🔧 Setting permissions..."
