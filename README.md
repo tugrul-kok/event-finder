@@ -1,42 +1,42 @@
-# 🎉 Events - Antalya Etkinlik Bulucu
+# 🎉 Events - Antalya Event Finder
 
-**Telegram Bot + Web Arayüzü** ile Antalya etkinliklerini bulun. **RAG (Retrieval-Augmented Generation)** sistemi ile doğal dil işleme, **otomatik web scraping** ve **günlük güncelleme** özellikli.
+**Telegram Bot + Web Interface** for finding events in Antalya. Features **RAG (Retrieval-Augmented Generation)** system with natural language processing, **automatic web scraping**, and **daily updates**.
 
-## 📋 Özellikler
+## 📋 Features
 
-✅ **Web Arayüzü** - Modern chat interface (http://events.tugrul.app)
+✅ **Web Interface** - Modern chat interface (http://events.tugrul.app)
 
-✅ **Telegram Bot** - Doğal dil ile etkinlik arama
+✅ **Telegram Bot** - Natural language event search
 
-✅ **RAG Sistemi** - Semantic search ile akıllı etkinlik bulma (Sentence-Transformers + FAISS + Gemini)
+✅ **RAG System** - Intelligent event finding with semantic search (Sentence-Transformers + FAISS + Gemini)
 
-✅ **Otomatik Web Scraping** - Biletinial ve BUBilet'ten günlük veri toplama (Antalya)
+✅ **Automatic Web Scraping** - Daily data collection from Biletinial and BUBilet (Antalya)
 
-✅ **Gemini AI** - Akıllı kategorizasyon ve doğal dil yanıtları
+✅ **Gemini AI** - Smart categorization and natural language responses
 
-✅ **Cron Job** - Her gece saat 02:00'de otomatik güncelleme + embeddings refresh
+✅ **Cron Job** - Automatic daily update at 02:00 + embeddings refresh
 
-✅ **RESTful API** - Dış entegrasyonlar için
+✅ **RESTful API** - For external integrations
 
-✅ **MongoDB** - Hızlı ve esnek veritabanı
+✅ **MongoDB** - Fast and flexible database
 
 ✅ **Production Ready** - Nginx, Gunicorn, Systemd
 
-## 🏗️ Sistem Mimarisi
+## 🏗️ System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    EVENTS SİSTEMİ                       │
+│                    EVENTS SYSTEM                        │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │  ┌──────────────┐    ┌──────────────┐                 │
 │  │  Telegram    │───▶│              │                 │
-│  │  Kullanıcı   │    │   Flask      │                 │
+│  │  User        │    │   Flask      │                 │
 │  └──────────────┘    │   API + Bot  │                 │
 │                      │              │                  │
 │  ┌──────────────┐    │              │                 │
 │  │  Web         │───▶│              │                 │
-│  │  Arayüzü     │    │   (Port 5001)│                 │
+│  │  Interface   │    │   (Port 5001)│                 │
 │  └──────────────┘    └───────┬──────┘                 │
 │                              │                          │
 │                              ▼                          │
@@ -55,43 +55,43 @@
 │                              │                          │
 │                              ▼                          │
 │              ┌────────────────────────────┐            │
-│              │  Biletinial  BUBilet      │            │
+│              │  Biletinial  BUBilet        │            │
 │              └────────────────────────────┘            │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
 
-## 🌐 Erişim Noktaları
+## 🌐 Access Points
 
-- **Web Arayüzü**: http://events.tugrul.app
+- **Web Interface**: http://events.tugrul.app
 - **API**: http://events.tugrul.app/api
 - **Health Check**: http://events.tugrul.app/health
-- **Telegram Bot**: Telegram'da botunuzu bulun
+- **Telegram Bot**: Find your bot on Telegram
 
-## 🚀 Hızlı Kurulum
+## 🚀 Quick Setup
 
-### 1. API Key'leri Alın
+### 1. Get API Keys
 
 #### a) Telegram Bot Token
 
-1. [@BotFather](https://t.me/BotFather) ile konuşun
-2. `/newbot` komutu ile bot oluşturun
-3. Token'ı kopyalayın: `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`
+1. Talk to [@BotFather](https://t.me/BotFather)
+2. Create a bot with `/newbot` command
+3. Copy the token: `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`
 
-#### b) Gemini API Key (ÜCRETSİZ)
+#### b) Gemini API Key (FREE)
 
-1. [Google AI Studio](https://makersuite.google.com/app/apikey)'ya gidin
-2. "Create API Key" tıklayın
-3. Key'i kopyalayın: `AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Click "Create API Key"
+3. Copy the key: `AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`
 
-### 2. Sunucuya Dosyaları Yükleyin
+### 2. Upload Files to Server
 
 ```bash
-# Proje dizini oluştur
+# Create project directory
 sudo mkdir -p /var/www/events
 cd /var/www/events
 
-# Git'ten clone edin veya dosyaları kopyalayın:
+# Clone from Git or copy files:
 # - events_backend.py
 # - scraper-script.py
 # - rag_engine.py
@@ -104,204 +104,202 @@ cd /var/www/events
 # - systemd-service.txt
 ```
 
-### 3. Token'ları Ekleyin
+### 3. Add Tokens
 
 ```bash
 nano .env
 ```
 
-Dosyayı şöyle düzenleyin:
+Edit the file:
 
 ```bash
 MONGO_URI=mongodb://localhost:27017/
 FLASK_ENV=production
-SECRET_KEY=random-secret-key-buraya-yazin
+SECRET_KEY=random-secret-key-here
 API_PORT=5001
 API_HOST=0.0.0.0
 
-# BotFather'dan aldığınız token
+# Token from BotFather
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 
-# Google AI Studio'dan aldığınız key
+# Key from Google AI Studio
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ```
 
-### 4. Deploy Edin
+### 4. Deploy
 
 ```bash
-# Deploy script'ine izin ver
+# Give execute permission to deploy script
 chmod +x deploy-script.sh
 chmod +x cron-setup.sh
 
-# Deploy'u çalıştır (tüm sistemi kurar)
+# Run deployment (installs entire system)
 sudo ./deploy-script.sh
 ```
 
-Script şunları yapacak:
+The script will:
 
-- ✅ Sistem paketlerini güncelleyecek
-- ✅ MongoDB'yi kuracak
-- ✅ Python paketlerini yükleyecek (scraping + AI + RAG)
-- ✅ Nginx'i ayarlayacak (web arayüzü + API)
-- ✅ Telegram bot'u başlatacak
-- ✅ Cron job'u kuracak (her gece saat 02:00)
-- ✅ İlk scraping'i çalıştıracak
-- ✅ RAG embeddings'leri oluşturacak
+- ✅ Update system packages
+- ✅ Install MongoDB
+- ✅ Install Python packages (scraping + AI + RAG)
+- ✅ Configure Nginx (web interface + API)
+- ✅ Start Telegram bot
+- ✅ Setup cron job (every night at 02:00)
+- ✅ Run first scraping
+- ✅ Create RAG embeddings
 
-### 5. Test Edin
+### 5. Test
 
 ```bash
-# Servis durumu
+# Service status
 sudo systemctl status events
 
 # API health check
 curl http://localhost:5001/health
 
-# Web arayüzü
+# Web interface
 curl http://localhost:5001/
 
-# Telegram bot testi
-# Telegram'da botunuzu bulun ve /start yazın
+# Telegram bot test
+# Find your bot on Telegram and send /start
 
-# Manuel scraper testi
+# Manual scraper test
 sudo -u www-data /var/www/events/run_scraper.sh
 
-# Veritabanını kontrol et
+# Check database
 mongo events_db --eval "db.events.count()"
 ```
 
-## 🌐 Web Arayüzü Kullanımı
+## 🌐 Web Interface Usage
 
-### Erişim
+### Access
 
-Web arayüzüne tarayıcınızdan erişin:
+Access the web interface from your browser:
 
 ```
 http://events.tugrul.app
 ```
 
-veya sunucu IP'si ile:
+or with server IP:
 
 ```
 http://65.21.182.26
 ```
 
-### Özellikler
+### Features
 
-- ✅ **Modern Chat Interface** - Telegram benzeri kullanıcı deneyimi
-- ✅ **Doğal Dil Sorguları** - "Bu hafta sonu konser var mı?" gibi sorular
-- ✅ **RAG Sistemi** - Semantic search ile akıllı etkinlik bulma
-- ✅ **Hızlı Örnekler** - Tek tıkla örnek sorgular
-- ✅ **Responsive Design** - Mobil ve masaüstü uyumlu
+- ✅ **Modern Chat Interface** - Telegram-like user experience
+- ✅ **Natural Language Queries** - Ask questions like "Are there any concerts this weekend?"
+- ✅ **RAG System** - Intelligent event finding with semantic search
+- ✅ **Quick Examples** - One-click example queries
+- ✅ **Responsive Design** - Mobile and desktop compatible
 
-### Örnek Sorgular
+### Example Queries
 
-- "Bu hafta sonu konser var mı?"
-- "Kasım ayı etkinlikleri"
-- "Bugün tiyatro"
-- "Yarın sinema"
-- "19 ekim konser"
+- "Are there any concerts this weekend?"
+- "November events"
+- "Theater today"
+- "Cinema tomorrow"
+- "October 19 concert"
 
-## 🤖 Telegram Bot Kullanımı
+## 🤖 Telegram Bot Usage
 
-### Komutlar
+### Commands
 
-- `/start` - Hoşgeldin mesajı
-- `/help` - Yardım
+- `/start` - Welcome message
+- `/help` - Help
 
-### Doğal Dil Örnekleri
+### Natural Language Examples
 
-Bot şu tarz mesajları anlayabilir:
+The bot can understand messages like:
 
-- "Bu hafta sonu konser var mı?"
-- "Kasım ayı etkinlikleri"
-- "Bugün tiyatro"
-- "Yarın sinema"
+- "Are there any concerts this weekend?"
+- "November events"
+- "Theater today"
+- "Cinema tomorrow"
 
-**Not:** Bot şu anda sadece **Antalya** etkinlikleri için çalışmaktadır.
+**Note:** The bot currently works only for **Antalya** events.
 
-## 🧠 RAG (Retrieval-Augmented Generation) Sistemi
+## 🧠 RAG (Retrieval-Augmented Generation) System
 
-### Nasıl Çalışır?
+### How It Works
 
-1. **Embedding Oluşturma**: Etkinlikler Sentence-Transformers ile vektörlere dönüştürülür
-2. **FAISS Index**: Embeddings FAISS vector database'de saklanır
-3. **Semantic Search**: Kullanıcı sorgusu da embedding'e dönüştürülür ve benzer etkinlikler bulunur
-4. **Gemini AI**: Bulunan etkinlikler Gemini AI ile doğal dil yanıtına dönüştürülür
+1. **Embedding Creation**: Events are converted to vectors using Sentence-Transformers
+2. **FAISS Index**: Embeddings are stored in FAISS vector database
+3. **Semantic Search**: User query is also converted to embedding and similar events are found
+4. **Gemini AI**: Found events are converted to natural language response using Gemini AI
 
-### Avantajlar
+### Advantages
 
-- ✅ **Semantic Search** - Sadece keyword değil, anlam bazlı arama
-- ✅ **Hızlı** - FAISS ile milisaniyeler içinde sonuç
-- ✅ **Akıllı** - Gemini AI ile doğal dil yanıtları
-- ✅ **Otomatik** - Embeddings scraper sonrası otomatik güncellenir
+- ✅ **Semantic Search** - Meaning-based search, not just keywords
+- ✅ **Fast** - Results in milliseconds with FAISS
+- ✅ **Smart** - Natural language responses with Gemini AI
+- ✅ **Automatic** - Embeddings are automatically updated after scraper runs
 
-### Embeddings Güncelleme
+### Embedding Updates
 
-Embeddings otomatik olarak:
-- Backend başladığında
-- İlk sorguda
-- Scraper çalıştıktan sonra backend yeniden başlatıldığında
+Embeddings are automatically updated:
+- When backend starts
+- On first query
+- After scraper runs and backend restarts
 
-güncellenir.
+## 🔍 How Scraper Works
 
-## 🔍 Scraper Nasıl Çalışır?
+### Automatic Operation
 
-### Otomatik Çalışma
+- **Time:** Every night at 02:00
+- **Sources:** Biletinial, BUBilet (Antalya)
+- **AI:** Smart categorization with Gemini
+- **RAG:** Embeddings automatically updated
+- **Cleanup:** Past events automatically deleted
 
-- **Zaman:** Her gece saat 02:00
-- **Kaynaklar:** Biletinial, BUBilet (Antalya)
-- **AI:** Gemini ile akıllı kategorizasyon
-- **RAG:** Embeddings otomatik güncellenir
-- **Temizlik:** Geçmiş etkinlikler otomatik silinir
-
-### Manuel Çalıştırma
+### Manual Execution
 
 ```bash
-# Scraper'ı manuel çalıştır
+# Run scraper manually
 sudo -u www-data /var/www/events/run_scraper.sh
 
-# Veya Python ile direkt
+# Or directly with Python
 cd /var/www/events
 source venv/bin/activate
 python3 scraper-script.py
 
-# Logları izle
+# Watch logs
 tail -f /var/log/events/scraper.log
 tail -f /var/log/events/scraper_cron.log
 ```
 
-### Scraper Ayarları
+### Scraper Settings
 
-`scraper-script.py` dosyasında kaynakları açıp/kapayabilirsiniz:
+You can enable/disable sources in `scraper-script.py`:
 
 ```python
 SCRAPERS = [
-    BiletinialScraper(),  # Antalya etkinlikleri
-    BUBiletScraper(),     # Antalya etkinlikleri
+    BiletinialScraper(),  # Antalya events
+    BUBiletScraper(),     # Antalya events
 ]
 ```
 
-## 🧠 Gemini AI Entegrasyonu
+## 🧠 Gemini AI Integration
 
-### Ne İşe Yarar?
+### What It Does
 
-1. **Kategorizasyon**: Scraping ile toplanan etkinliklerin kategorilerini otomatik belirler
-2. **RAG Yanıtları**: Semantic search sonuçlarını doğal dil yanıtına dönüştürür
+1. **Categorization**: Automatically determines categories of events collected by scraping
+2. **RAG Responses**: Converts semantic search results to natural language responses
 
-### API Limitleri
+### API Limits
 
-Google Gemini **ÜCRETSİZ** tier:
+Google Gemini **FREE** tier:
 
-- Günde 60 istek/dakika
-- Ayda 1,500 istek
-- Bizim kullanım: ~50-100 istek/gece (scraping) + kullanıcı sorguları
+- 60 requests/minute per day
+- 1,500 requests per month
+- Our usage: ~50-100 requests/night (scraping) + user queries
 
-### Gemini Olmadan Çalışır mı?
+### Works Without Gemini?
 
-**Evet!** Gemini API key yoksa otomatik olarak basit keyword bazlı kategorizasyon kullanır.
+**Yes!** If Gemini API key is missing, it automatically uses simple keyword-based categorization.
 
-## 📊 API Kullanımı
+## 📊 API Usage
 
 ### Web Chat API
 
@@ -310,33 +308,33 @@ POST /api/chat
 Content-Type: application/json
 
 {
-  "message": "Bu hafta sonu konser var mı?"
+  "message": "Are there any concerts this weekend?"
 }
 ```
 
-Yanıt:
+Response:
 
 ```json
 {
   "success": true,
-  "answer": "Merhaba! Antalya'da bu hafta sonu için..."
+  "answer": "Hello! For this weekend in Antalya..."
 }
 ```
 
-### Etkinlikleri Listele
+### List Events
 
 ```bash
 GET /api/events?city=antalya&category=music&start_date=2025-01-20&limit=10
 ```
 
-### Yeni Etkinlik Ekle
+### Add New Event
 
 ```bash
 POST /api/events
 Content-Type: application/json
 
 {
-  "title": "Jazz Gecesi",
+  "title": "Jazz Night",
   "city": "antalya",
   "category": "music",
   "date": "2025-02-15",
@@ -345,88 +343,88 @@ Content-Type: application/json
 }
 ```
 
-### Diğer Endpoint'ler
+### Other Endpoints
 
-- `GET /api/events/{id}` - Tek etkinlik
-- `PUT /api/events/{id}` - Güncelle
-- `DELETE /api/events/{id}` - Sil
-- `GET /api/cities` - Şehir listesi
-- `GET /api/categories` - Kategori listesi
-- `GET /health` - Sistem sağlığı
+- `GET /api/events/{id}` - Single event
+- `PUT /api/events/{id}` - Update
+- `DELETE /api/events/{id}` - Delete
+- `GET /api/cities` - City list
+- `GET /api/categories` - Category list
+- `GET /health` - System health
 
-## 🛠️ Yararlı Komutlar
+## 🛠️ Useful Commands
 
-### Servis Yönetimi
+### Service Management
 
 ```bash
-# Servisi yeniden başlat (API + Bot + Web)
+# Restart service (API + Bot + Web)
 sudo systemctl restart events
 
-# Durumu kontrol et
+# Check status
 sudo systemctl status events
 
-# Logları izle
+# Watch logs
 sudo journalctl -u events -f
 ```
 
-### Scraper Yönetimi
+### Scraper Management
 
 ```bash
-# Manuel çalıştır
+# Run manually
 sudo -u www-data /var/www/events/run_scraper.sh
 
-# Scraper logları
+# Scraper logs
 tail -f /var/log/events/scraper.log
 
-# Cron logları
+# Cron logs
 tail -f /var/log/events/scraper_cron.log
 
-# Cron job'u düzenle
+# Edit cron job
 sudo crontab -u www-data -e
 
-# Cron job'u görüntüle
+# View cron job
 sudo crontab -u www-data -l
 ```
 
-### Veritabanı
+### Database
 
 ```bash
-# MongoDB'ye bağlan
+# Connect to MongoDB
 mongo events_db
 
-# Etkinlik sayısı
+# Event count
 db.events.count()
 
-# Son eklenen 10 etkinlik
+# Last 10 events
 db.events.find().sort({created_at: -1}).limit(10).pretty()
 
-# Şehirlere göre grup
+# Group by city
 db.events.aggregate([{$group: {_id: "$city", count: {$sum: 1}}}])
 
-# Kategorilere göre grup
+# Group by category
 db.events.aggregate([{$group: {_id: "$category", count: {$sum: 1}}}])
 
-# Veritabanını temizle
+# Clear database
 db.events.deleteMany({})
 ```
 
 ### Nginx
 
 ```bash
-# Nginx'i yeniden başlat
+# Restart Nginx
 sudo systemctl restart nginx
 
-# Konfigürasyonu test et
+# Test configuration
 sudo nginx -t
 
-# Access logları
+# Access logs
 tail -f /var/log/nginx/events_access.log
 
-# Error logları
+# Error logs
 tail -f /var/log/nginx/events_error.log
 ```
 
-## 🔒 Güvenlik
+## 🔒 Security
 
 ### Firewall
 
@@ -440,35 +438,35 @@ sudo ufw allow 22/tcp
 ### SSL/HTTPS
 
 ```bash
-# Certbot yükle
+# Install Certbot
 sudo apt-get install certbot python3-certbot-nginx
 
-# SSL sertifikası al
+# Get SSL certificate
 sudo certbot --nginx -d events.tugrul.app
 
-# Otomatik yenileme test
+# Test automatic renewal
 sudo certbot renew --dry-run
 ```
 
 ### API Rate Limiting
 
-Nginx konfigürasyonunda aktif:
+Active in Nginx configuration:
 
-- Saniyede 10 istek
-- Burst: 20 istek
+- 10 requests per second
+- Burst: 20 requests
 
 ## 📈 Monitoring
 
-### Sistem Sağlığı
+### System Health
 
 ```bash
-# Tüm servisler
+# All services
 sudo systemctl status events mongodb nginx
 
 # API health
 curl http://localhost:5001/health
 
-# Disk kullanımı
+# Disk usage
 df -h
 
 # RAM
@@ -478,58 +476,58 @@ free -m
 top
 ```
 
-### Scraper İstatistikleri
+### Scraper Statistics
 
 ```bash
-# Son scraping sonucu
+# Last scraping result
 tail -20 /var/log/events/scraper.log
 
-# Scraping geçmişi
-grep "Scraper tamamlandı" /var/log/events/scraper.log
+# Scraping history
+grep "Scraper completed" /var/log/events/scraper.log
 
-# Hata sayısı
+# Error count
 grep "ERROR" /var/log/events/scraper.log | wc -l
 ```
 
-## 🐛 Sorun Giderme
+## 🐛 Troubleshooting
 
-### Scraper Çalışmıyor
+### Scraper Not Working
 
-1. **Cron job kontrol:**
+1. **Check cron job:**
 
 ```bash
 sudo crontab -u www-data -l
 ```
 
-2. **Manuel çalıştır ve logları izle:**
+2. **Run manually and watch logs:**
 
 ```bash
 sudo -u www-data /var/www/events/run_scraper.sh
 tail -f /var/log/events/scraper.log
 ```
 
-3. **Gemini API key'i kontrol:**
+3. **Check Gemini API key:**
 
 ```bash
 cat /var/www/events/.env | grep GEMINI_API_KEY
 ```
 
-### Telegram Bot Yanıt Vermiyor
+### Telegram Bot Not Responding
 
-1. **Token kontrol:**
+1. **Check token:**
 
 ```bash
 cat /var/www/events/.env | grep TELEGRAM_BOT_TOKEN
 ```
 
-2. **Servis durumu:**
+2. **Service status:**
 
 ```bash
 sudo systemctl status events
 sudo journalctl -u events -f
 ```
 
-3. **Manuel test:**
+3. **Manual test:**
 
 ```bash
 cd /var/www/events
@@ -537,71 +535,71 @@ source venv/bin/activate
 python3 events_backend.py
 ```
 
-### Web Arayüzü Çalışmıyor
+### Web Interface Not Working
 
-1. **Nginx kontrol:**
+1. **Check Nginx:**
 
 ```bash
 sudo systemctl status nginx
 sudo nginx -t
 ```
 
-2. **Backend kontrol:**
+2. **Check backend:**
 
 ```bash
 curl http://localhost:5001/health
 curl http://localhost:5001/
 ```
 
-3. **Logları kontrol:**
+3. **Check logs:**
 
 ```bash
 sudo tail -f /var/log/nginx/events_error.log
 sudo journalctl -u events -f
 ```
 
-### Veritabanı Boş
+### Database Empty
 
-1. **Scraper'ı çalıştır:**
+1. **Run scraper:**
 
 ```bash
 sudo -u www-data /var/www/events/run_scraper.sh
 ```
 
-2. **Örnek veri ekle:**
+2. **Add sample data:**
 
 ```bash
 curl -X POST http://localhost:5001/api/seed
 ```
 
-3. **Manuel veri ekle:**
+3. **Add manually:**
 
 ```bash
 curl -X POST http://localhost:5001/api/events \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Test Etkinlik",
+    "title": "Test Event",
     "city": "antalya",
     "category": "music",
     "date": "2025-12-31",
-    "venue": "Test Mekan",
+    "venue": "Test Venue",
     "price": "100 TL"
   }'
 ```
 
-### Gemini API Limiti
+### Gemini API Limit
 
-Eğer günlük limit doluysa, scraper otomatik olarak basit kategorizasyon kullanacaktır. Limit yenilenene kadar bekleyin veya API key'i yükseltin.
+If daily limit is reached, scraper will automatically use simple categorization. Wait until limit resets or upgrade API key.
 
-### RAG Embeddings Oluşmuyor
+### RAG Embeddings Not Created
 
-1. **Backend'i yeniden başlat:**
+1. **Restart backend:**
 
 ```bash
 sudo systemctl restart events
 ```
 
-2. **Manuel oluştur:**
+2. **Create manually:**
 
 ```bash
 cd /var/www/events
@@ -609,7 +607,7 @@ source venv/bin/activate
 python3 -c "from rag_engine import get_rag_engine; get_rag_engine()"
 ```
 
-## 📁 Proje Yapısı
+## 📁 Project Structure
 
 ```
 /var/www/events/
@@ -617,82 +615,81 @@ python3 -c "from rag_engine import get_rag_engine; get_rag_engine()"
 ├── scraper-script.py          # Web Scraper + Gemini AI
 ├── rag_engine.py              # RAG engine (Gemini + Semantic Search)
 ├── rag_retriever.py           # FAISS retriever
-├── requirements.txt           # Python bağımlılıkları
-├── .env                       # Çevre değişkenleri (TOKEN'lar)
-├── run_scraper.sh            # Cron için scraper script
+├── requirements.txt           # Python dependencies
+├── .env                       # Environment variables (TOKENS)
+├── run_scraper.sh            # Cron scraper script
 ├── web/
-│   └── index.html            # Web arayüzü
-├── venv/                     # Python sanal ortamı
-└── logs/                     # Log dosyaları
+│   └── index.html            # Web interface
+├── venv/                     # Python virtual environment
+└── logs/                     # Log files
 
 /etc/nginx/
 └── sites-available/
-    └── events                # Nginx konfigürasyonu
+    └── events                # Nginx configuration
 
 /etc/systemd/system/
 └── events.service            # Systemd service
 
 /var/log/events/
-├── scraper.log               # Scraper logları
-├── scraper_cron.log          # Cron job logları
-├── access.log                # API access logları
-└── error.log                 # API error logları
+├── scraper.log               # Scraper logs
+├── scraper_cron.log          # Cron job logs
+├── access.log                # API access logs
+└── error.log                 # API error logs
 ```
 
-## 🎯 Özellik Karşılaştırması
+## 🎯 Feature Comparison
 
-| Özellik          | Durum            |
+| Feature          | Status            |
 | ---------------- | ---------------- |
-| Web Arayüzü      | ✅ Aktif         |
-| Telegram Bot     | ✅ Aktif         |
-| RAG Sistemi      | ✅ Aktif         |
-| RESTful API      | ✅ Aktif         |
-| Otomatik Scraping| ✅ Aktif (02:00) |
-| Gemini AI        | ✅ Aktif         |
-| MongoDB          | ✅ Aktif         |
-| FAISS            | ✅ Aktif         |
-| Cron Job         | ✅ Aktif         |
-| Nginx            | ✅ Aktif         |
-| SSL/HTTPS         | ⚙️ Opsiyonel   |
+| Web Interface    | ✅ Active         |
+| Telegram Bot     | ✅ Active         |
+| RAG System       | ✅ Active         |
+| RESTful API      | ✅ Active         |
+| Auto Scraping    | ✅ Active (02:00) |
+| Gemini AI        | ✅ Active         |
+| MongoDB          | ✅ Active         |
+| FAISS            | ✅ Active         |
+| Cron Job         | ✅ Active         |
+| Nginx            | ✅ Active         |
+| SSL/HTTPS         | ⚙️ Optional   |
 
-## 💡 İpuçları
+## 💡 Tips
 
-- **Scraping Zamanı:** Gece 02:00 ideal çünkü trafik azdır. Değiştirmek için crontab'ı düzenleyin.
-- **Rate Limiting:** Scraper her site arasında 1 saniye bekler (rate limit ihlali önlemek için).
-- **Gemini Limiti:** Ücretsiz tier yeterlidir. Gerekirse basit kategorizasyon fallback olarak çalışır.
-- **Veritabanı Boyutu:** MongoDB otomatik olarak eski etkinlikleri temizler.
-- **RAG Embeddings:** Backend başladığında veya scraper sonrası otomatik güncellenir.
-- **Backup:** MongoDB verilerini düzenli yedekleyin: `mongodump --db events_db`
+- **Scraping Time:** 02:00 at night is ideal because traffic is low. Edit crontab to change.
+- **Rate Limiting:** Scraper waits 1 second between sites (to prevent rate limit violations).
+- **Gemini Limit:** Free tier is sufficient. Simple categorization works as fallback if needed.
+- **Database Size:** MongoDB automatically cleans old events.
+- **RAG Embeddings:** Automatically updated when backend starts or after scraper runs.
+- **Backup:** Regularly backup MongoDB data: `mongodump --db events_db`
 
-## 🤝 Katkıda Bulunma
+## 🤝 Contributing
 
-Yeni scraping kaynağı eklemek için `scraper-script.py` dosyasında:
+To add a new scraping source in `scraper-script.py`:
 
-1. Yeni scraper class'ı ekle: `class YeniSiteScraper(BaseEventScraper)`
-2. `SCRAPERS` listesine ekle
-3. Test et
+1. Add new scraper class: `class NewSiteScraper(BaseEventScraper)`
+2. Add to `SCRAPERS` list
+3. Test
 
-## 📄 Lisans
+## 📄 License
 
 MIT License
 
 ---
 
-**Kurulum Checklist:**
+**Installation Checklist:**
 
-- [ ] Telegram bot token alındı
-- [ ] Gemini API key alındı
-- [ ] Token'lar `.env` dosyasına eklendi
-- [ ] `deploy-script.sh` çalıştırıldı
-- [ ] MongoDB çalışıyor
-- [ ] Events service çalışıyor
-- [ ] Nginx çalışıyor
-- [ ] Cron job kuruldu
-- [ ] İlk scraping başarılı
-- [ ] RAG embeddings oluşturuldu
-- [ ] Web arayüzü erişilebilir (http://events.tugrul.app)
-- [ ] Telegram bot test edildi
-- [ ] Veritabanında etkinlikler var
+- [ ] Telegram bot token obtained
+- [ ] Gemini API key obtained
+- [ ] Tokens added to `.env` file
+- [ ] `deploy-script.sh` executed
+- [ ] MongoDB running
+- [ ] Events service running
+- [ ] Nginx running
+- [ ] Cron job installed
+- [ ] First scraping successful
+- [ ] RAG embeddings created
+- [ ] Web interface accessible (http://events.tugrul.app)
+- [ ] Telegram bot tested
+- [ ] Events in database
 
-Hepsi ✅ ise sisteminiz hazır! 🎉
-
+All ✅ means your system is ready! 🎉
