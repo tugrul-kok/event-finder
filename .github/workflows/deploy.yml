@@ -32,7 +32,7 @@ jobs:
             echo "🚀 Starting deployment..."
             
             # Proje dizinine git
-            cd /var/www/events
+            cd /var/www/event-finder
             
             # Git pull (eğer repo clone edilmişse)
             if [ -d .git ]; then
@@ -54,8 +54,8 @@ jobs:
             
             # Dosya izinlerini düzelt
             echo "🔧 Setting permissions..."
-            sudo chown -R www-data:www-data /var/www/events
-            sudo chmod -R 755 /var/www/events
+            sudo chown -R www-data:www-data /var/www/event-finder
+            sudo chmod -R 755 /var/www/event-finder
             
             # RAG embeddings'i yeniden oluştur (opsiyonel, ilk sorguda otomatik oluşacak)
             echo "🧠 RAG embeddings will be regenerated on next query or service restart"
