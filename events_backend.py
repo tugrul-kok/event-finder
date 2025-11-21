@@ -44,9 +44,8 @@ def start_telegram_bot_thread():
             logger.warning("TELEGRAM_BOT_TOKEN not found, Telegram bot will not start")
 
 # Gunicorn ile çalışırken bot'u başlat
-# Modül import edildiğinde çalışır (TELEGRAM_BOT_TOKEN tanımlandıktan sonra)
-if os.getenv('FLASK_ENV') != 'development':  # Production'da (Gunicorn) otomatik başlat
-    start_telegram_bot_thread()
+# NOT: start_telegram_bot_thread() çağrısı dosyanın sonunda yapılacak
+# (tüm fonksiyonlar tanımlandıktan sonra)
 
 try:
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
@@ -853,6 +852,11 @@ def start_flask():
     
     logger.info(f"🌐 Starting Flask API on http://{host}:{port}")
     app.run(host=host, port=port, debug=debug, use_reloader=False)
+
+# Gunicorn ile çalışırken bot'u başlat (tüm fonksiyonlar tanımlandıktan sonra)
+# Modül import edildiğinde çalışır (Production'da)
+if os.getenv('FLASK_ENV') != 'development':  # Production'da (Gunicorn) otomatik başlat
+    start_telegram_bot_thread()
 
 if __name__ == '__main__':
     # Development modunda çalıştırılıyorsa (python app.py)
