@@ -36,6 +36,10 @@ jobs:
             
             # Git repo kontrolü ve hard reset
             if [ -d .git ]; then
+              # Git ownership sorununu çöz
+              echo "🔧 Configuring git safe directory..."
+              git config --global --add safe.directory /var/www/event-finder || true
+              
               echo "📥 Fetching latest changes..."
               git fetch origin main
               echo "🔄 Hard reset to origin/main..."
