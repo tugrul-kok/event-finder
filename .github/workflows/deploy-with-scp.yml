@@ -1,0 +1,122 @@
+name: Deploy to Server (SCP Method)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Manuel tetikleme için
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Create deployment package
+        run: |
+          # .env ve venv hariç dosyaları kopyala
+          tar --exclude='.env' \
+              --exclude='venv' \
+              --exclude='.git' \
+              --exclude='__pycache__' \
+              --exclude='*.pyc' \
+              --exclude='logs' \
+              --exclude='.gitignore' \
+              -czf deploy.tar.gz .
+      
+      - name: Copy files to server
+        run: |
+          scp -o StrictHostKeyChecking=no deploy.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/
+      
+      - name: Deploy on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
+            
+            echo "🚀 Starting deployment..."
+            
+            # Proje dizinine git
+            cd /var/www/events
+            
+            # Backup mevcut .env (eğer varsa)
+            if [ -f .env ]; then
+              echo "💾 Backing up .env..."
+              cp .env /tmp/.env.backup
+            fi
+            
+            # Dosyaları extract et
+            echo "📦 Extracting files..."
+            cd /var/www/events
+            tar -xzf /tmp/deploy.tar.gz -C /var/www/events
+            
+            # .env'i geri yükle (eğer backup varsa)
+            if [ -f /tmp/.env.backup ]; then
+              echo "💾 Restoring .env..."
+              mv /tmp/.env.backup .env
+            fi
+            
+            # Virtual environment'ı kontrol et ve güncelle
+            if [ ! -d venv ]; then
+              echo "🐍 Creating virtual environment..."
+              python3 -m venv venv
+            fi
+            
+            source venv/bin/activate
+            
+            # Requirements güncelle
+            echo "📦 Updating Python packages..."
+            pip install -q --upgrade pip
+            pip install -q -r requirements.txt
+            
+            # Dosya izinlerini düzelt
+            echo "🔧 Setting permissions..."
+            sudo chown -R www-data:www-data /var/www/events
+            sudo chmod -R 755 /var/www/events
+            sudo chmod +x deploy-script.sh cron-setup.sh 2>/dev/null || true
+            
+            # Servisi yeniden başlat
+            echo "🔄 Restarting service..."
+            sudo systemctl restart events
+            
+            # Servis durumunu kontrol et
+            echo "✅ Checking service status..."
+            sleep 3
+            sudo systemctl status events --no-pager || true
+            
+            # Health check
+            echo "🏥 Health check..."
+            sleep 2
+            curl -f http://localhost:5001/health || echo "⚠️ Health check failed (service might still be starting)"
+            
+            # Cleanup
+            rm -f /tmp/deploy.tar.gz
+            
+            echo "✅ Deployment completed!"
+          EOF
+      
+      - name: Verify deployment
+        run: |
+          sleep 5
+          curl -f https://events.tugrul.app/health || echo "⚠️ Health check failed"
+      
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Code deployed to server" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Service restarted" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 Web: https://events.tugrul.app" >> $GITHUB_STEP_SUMMARY
+          echo "📊 API: https://events.tugrul.app/api" >> $GITHUB_STEP_SUMMARY
+

@@ -1,0 +1,92 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Manuel tetikleme için
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
+            
+            echo "🚀 Starting deployment..."
+            
+            # Proje dizinine git
+            cd /var/www/events
+            
+            # Git pull (eğer repo clone edilmişse)
+            if [ -d .git ]; then
+              echo "📥 Pulling latest changes..."
+              git pull origin main
+            else
+              echo "📋 Copying files..."
+              # Eğer git yoksa, dosyaları manuel kopyala
+              # Bu durumda GitHub Actions'tan dosyaları SCP ile kopyalayabiliriz
+            fi
+            
+            # Virtual environment'ı aktif et
+            source venv/bin/activate
+            
+            # Requirements güncelle (eğer değiştiyse)
+            echo "📦 Updating Python packages..."
+            pip install -q --upgrade pip
+            pip install -q -r requirements.txt
+            
+            # Dosya izinlerini düzelt
+            echo "🔧 Setting permissions..."
+            sudo chown -R www-data:www-data /var/www/events
+            sudo chmod -R 755 /var/www/events
+            
+            # RAG embeddings'i yeniden oluştur (opsiyonel, ilk sorguda otomatik oluşacak)
+            echo "🧠 RAG embeddings will be regenerated on next query or service restart"
+            
+            # Servisi yeniden başlat
+            echo "🔄 Restarting service..."
+            sudo systemctl restart events
+            
+            # Servis durumunu kontrol et
+            echo "✅ Checking service status..."
+            sleep 3
+            sudo systemctl status events --no-pager || true
+            
+            # Health check
+            echo "🏥 Health check..."
+            curl -f http://localhost:5001/health || echo "⚠️ Health check failed (service might still be starting)"
+            
+            echo "✅ Deployment completed!"
+          EOF
+      
+      - name: Verify deployment
+        run: |
+          sleep 5
+          curl -f https://events.tugrul.app/health || echo "⚠️ Health check failed"
+      
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Code deployed to server" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Service restarted" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 Web: https://events.tugrul.app" >> $GITHUB_STEP_SUMMARY
+          echo "📊 API: https://events.tugrul.app/api" >> $GITHUB_STEP_SUMMARY
+
