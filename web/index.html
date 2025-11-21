@@ -289,7 +289,28 @@
         document.getElementById('welcomeTime').textContent = new Date().toLocaleTimeString('tr-TR');
 
         // Get API base URL
-        const API_BASE = window.location.origin;
+        // If running on Live Server or different port, use backend port directly
+        // Otherwise use same origin (for production)
+        const API_BASE = (() => {
+            const host = window.location.hostname;
+            const port = window.location.port;
+            
+            // If running on Live Server (typically port 5500, 8080, etc.) or different port
+            // Use backend port 5001 for local development
+            if (host === 'localhost' || host === '127.0.0.1') {
+                // Check if we're on a different port than backend
+                if (port && port !== '5001' && port !== '') {
+                    return `http://${host}:5001`;
+                }
+                // If no port specified or port is 5001, use same origin
+                return window.location.origin;
+            }
+            
+            // For production (events.tugrul.app), use same origin
+            return window.location.origin;
+        })();
+        
+        console.log('API Base URL:', API_BASE);
 
         function addMessage(text, isUser = false) {
             const messageDiv = document.createElement('div');
@@ -359,13 +380,17 @@
                 removeLoadingMessage();
 
                 if (!response.ok) {
-                    throw new Error('API hatası');
+                    const errorText = await response.text();
+                    console.error('API Error:', response.status, errorText);
+                    throw new Error(`API hatası: ${response.status}`);
                 }
 
                 const data = await response.json();
                 
                 // Add bot response
-                if (data.answer) {
+                if (data.success && data.answer) {
+                    addMessage(data.answer, false);
+                } else if (data.answer) {
                     addMessage(data.answer, false);
                 } else {
                     addMessage('Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.', false);
@@ -373,7 +398,7 @@
             } catch (error) {
                 removeLoadingMessage();
                 console.error('Error:', error);
-                addMessage('⚠️ Bağlantı hatası. Lütfen tekrar deneyin.', false);
+                addMessage(`⚠️ Bağlantı hatası: ${error.message}. Lütfen tekrar deneyin.`, false);
             } finally {
                 sendButton.disabled = false;
                 chatInput.focus();

@@ -73,33 +73,23 @@ def check_mongodb():
 
 # ============ FLASK API ENDPOINTS ============
 
-# Web interface route
-@app.route('/')
-def index():
-    """Serve web interface"""
-    import os
-    web_dir = os.path.join(os.path.dirname(__file__), 'web')
-    if os.path.exists(web_dir):
-        return send_from_directory(web_dir, 'index.html')
-    else:
-        return jsonify({"message": "Web interface not found. API is running.", "endpoints": ["/api/chat", "/api/events", "/health"]}), 200
-
-@app.route('/<path:path>')
-def serve_static(path):
-    """Serve static files from web directory"""
-    import os
-    web_dir = os.path.join(os.path.dirname(__file__), 'web')
-    if os.path.exists(web_dir) and os.path.exists(os.path.join(web_dir, path)):
-        return send_from_directory(web_dir, path)
-    else:
-        return jsonify({"error": "Not found"}), 404
-
-# Chat API endpoint for web interface
-@app.route('/api/chat', methods=['POST'])
+# Chat API endpoint for web interface (MUST be before catch-all route)
+@app.route('/api/chat', methods=['POST', 'OPTIONS'])
 def chat_api():
     """Chat API endpoint for web interface - uses same RAG system as Telegram"""
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response
+    
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Invalid JSON"}), 400
+            
         user_message = data.get('message', '')
         
         if not user_message:
@@ -119,7 +109,9 @@ def chat_api():
                 )
                 answer = result.get('answer', '')
                 if answer:
-                    return jsonify({"success": True, "answer": answer})
+                    response = jsonify({"success": True, "answer": answer})
+                    response.headers.add('Access-Control-Allow-Origin', '*')
+                    return response
             except Exception as e:
                 logger.error(f"RAG engine error in web API: {e}")
                 # Fallback to simple search
@@ -128,13 +120,44 @@ def chat_api():
         # Fallback: Simple search
         params = parse_message(user_message)
         events = search_events(params)
-        response = format_events_message(events, params)
+        response_text = format_events_message(events, params)
         
-        return jsonify({"success": True, "answer": response})
+        response = jsonify({"success": True, "answer": response_text})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
         
     except Exception as e:
         logger.error(f"Chat API error: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        import traceback
+        logger.error(traceback.format_exc())
+        response = jsonify({"success": False, "error": str(e)})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 500
+
+# Web interface routes (AFTER API routes)
+@app.route('/')
+def index():
+    """Serve web interface"""
+    import os
+    web_dir = os.path.join(os.path.dirname(__file__), 'web')
+    if os.path.exists(web_dir):
+        return send_from_directory(web_dir, 'index.html')
+    else:
+        return jsonify({"message": "Web interface not found. API is running.", "endpoints": ["/api/chat", "/api/events", "/health"]}), 200
+
+@app.route('/<path:path>', methods=['GET'])
+def serve_static(path):
+    """Serve static files from web directory (only GET, excludes /api paths)"""
+    import os
+    # Don't serve API paths as static files
+    if path.startswith('api/'):
+        return jsonify({"error": "Not found"}), 404
+    
+    web_dir = os.path.join(os.path.dirname(__file__), 'web')
+    if os.path.exists(web_dir) and os.path.exists(os.path.join(web_dir, path)):
+        return send_from_directory(web_dir, path)
+    else:
+        return jsonify({"error": "Not found"}), 404
 
 @app.route('/health', methods=['GET'])
 def health_check():
