@@ -93,6 +93,26 @@ jobs:
             echo "🏥 Internal Health check..."
             curl -f http://localhost:5001/health || echo "⚠️ Internal health check failed (service might still be initializing)"
             
+            # SSL kontrolü ve Nginx yapılandırması
+            echo "🔍 SSL sertifikası kontrol ediliyor..."
+            if [ -f /etc/letsencrypt/live/events.tugrul.app/fullchain.pem ]; then
+                echo "✅ SSL sertifikası mevcut - Nginx HTTPS yapılandırması güncelleniyor..."
+                # Mevcut SSL sertifikasını kullanarak nginx'i yapılandır
+                if [ -f /var/www/event-finder/setup-ssl.sh ]; then
+                    bash /var/www/event-finder/setup-ssl.sh || {
+                        echo "⚠️  setup-ssl.sh çalıştırılamadı, manuel kontrol gerekebilir"
+                        systemctl reload nginx || systemctl restart nginx
+                    }
+                else
+                    echo "⚠️  setup-ssl.sh bulunamadı, nginx'i yeniden başlatıyoruz..."
+                    systemctl reload nginx || systemctl restart nginx
+                fi
+            else
+                echo "⚠️  SSL sertifikası bulunamadı - HTTP modunda çalışıyor"
+                echo "💡 HTTPS için sunucuda şu komutu çalıştırın: sudo bash /var/www/event-finder/setup-ssl.sh"
+                systemctl reload nginx || systemctl restart nginx
+            fi
+            
             echo "✅ Deployment completed successfully!"
           EOF
       
@@ -100,7 +120,8 @@ jobs:
         run: |
           echo "Waiting for service to stabilize..."
           sleep 10
-          curl -f https://events.tugrul.app/health || echo "⚠️ Public health check failed"
+          # Try HTTPS first, fallback to HTTP if SSL not configured
+          curl -f https://events.tugrul.app/health 2>/dev/null || curl -f http://events.tugrul.app/health || echo "⚠️ Public health check failed"
       
       - name: Deployment summary
         run: |

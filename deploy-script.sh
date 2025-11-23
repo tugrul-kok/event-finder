@@ -67,8 +67,117 @@ systemctl daemon-reload
 
 # 9. Nginx konfigürasyonu
 echo -e "${YELLOW}🌐 Nginx ayarlanıyor...${NC}"
+
+# Mevcut SSL sertifikasını kontrol et
+SSL_CERT=""
+SSL_KEY=""
+
+# Let's Encrypt sertifikasını kontrol et
+if [ -f "/etc/letsencrypt/live/events.tugrul.app/fullchain.pem" ]; then
+    SSL_CERT="/etc/letsencrypt/live/events.tugrul.app/fullchain.pem"
+    SSL_KEY="/etc/letsencrypt/live/events.tugrul.app/privkey.pem"
+    echo -e "${GREEN}✅ Mevcut SSL sertifikası bulundu, HTTPS yapılandırması yapılıyor...${NC}"
+fi
+
 # Nginx config'i oluştur
-cat > /etc/nginx/sites-available/events << 'NGINX_EOF'
+if [ -n "$SSL_CERT" ] && [ -f "$SSL_CERT" ]; then
+    # HTTPS yapılandırması
+    cat > /etc/nginx/sites-available/events << NGINX_EOF
+# HTTP'den HTTPS'e yönlendirme
+server {
+    listen 80;
+    server_name events.tugrul.app 65.21.182.26;
+    
+    # Let's Encrypt doğrulama için
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+    
+    # Tüm HTTP trafiğini HTTPS'e yönlendir
+    location / {
+        return 301 https://\$server_name\$request_uri;
+    }
+}
+
+# HTTPS server
+server {
+    listen 443 ssl http2;
+    server_name events.tugrul.app 65.21.182.26;
+    
+    # SSL sertifikaları
+    ssl_certificate ${SSL_CERT};
+    ssl_certificate_key ${SSL_KEY};
+    
+    # SSL yapılandırması
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    
+    client_max_body_size 10M;
+    
+    # Web interface (root)
+    location / {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+    
+    # API endpoints
+    location /api {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        
+        # CORS headers
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization' always;
+        
+        if (\$request_method = 'OPTIONS') {
+            return 204;
+        }
+    }
+    
+    # Health check endpoint
+    location /health {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+    
+    # Rate limiting (DDoS koruması)
+    limit_req_zone \$binary_remote_addr zone=api_limit:10m rate=10r/s;
+    limit_req zone=api_limit burst=20 nodelay;
+    
+    # Logs
+    access_log /var/log/nginx/events_access.log;
+    error_log /var/log/nginx/events_error.log;
+}
+NGINX_EOF
+else
+    # Sadece HTTP yapılandırması (SSL yoksa)
+    echo -e "${YELLOW}⚠️  SSL sertifikası bulunamadı, sadece HTTP yapılandırması yapılıyor...${NC}"
+    cat > /etc/nginx/sites-available/events << 'NGINX_EOF'
 server {
     listen 80;
     server_name events.tugrul.app 65.21.182.26;
@@ -126,6 +235,7 @@ server {
     error_log /var/log/nginx/events_error.log;
 }
 NGINX_EOF
+fi
 
 ln -sf /etc/nginx/sites-available/events /etc/nginx/sites-enabled/
 nginx -t
@@ -171,9 +281,16 @@ echo "1. Telegram Bot Token: nano /var/www/events/.env"
 echo "2. Gemini API Key: nano /var/www/events/.env"
 echo ""
 echo -e "${GREEN}🔗 URL'ler:${NC}"
-echo "  • Web Interface: http://events.tugrul.app"
-echo "  • API: http://events.tugrul.app/api"
-echo "  • Health: http://events.tugrul.app/health"
+if [ -n "$SSL_CERT" ] && [ -f "$SSL_CERT" ]; then
+    echo "  • Web Interface: https://events.tugrul.app"
+    echo "  • API: https://events.tugrul.app/api"
+    echo "  • Health: https://events.tugrul.app/health"
+else
+    echo "  • Web Interface: http://events.tugrul.app"
+    echo "  • API: http://events.tugrul.app/api"
+    echo "  • Health: http://events.tugrul.app/health"
+    echo -e "${YELLOW}  💡 HTTPS için: sudo bash setup-ssl.sh${NC}"
+fi
 echo ""
 echo -e "${GREEN}🤖 Telegram Bot:${NC}"
 echo "  • Botunuzu Telegram'da bulun ve /start yazın"
