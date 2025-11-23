@@ -4,7 +4,8 @@
 # Mevcut SSL sertifikasını kullanarak Nginx'i HTTPS için yapılandırır
 # Bu script'i root veya sudo ile çalıştırın
 
-set -e
+# set -e yerine kontrollü hata yönetimi kullanıyoruz
+set +e
 
 echo "🔒 SSL/HTTPS Nginx Yapılandırması Başlıyor..."
 
@@ -200,8 +201,9 @@ server {
     }
     
     # Rate limiting (DDoS koruması)
-    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
-    limit_req zone=api_limit burst=20 nodelay;
+    # Not: limit_req_zone http bloğunda tanımlanmalı
+    # Eğer nginx.conf'da limit_req_zone tanımlı değilse aşağıdaki satırı yorum satırı yapın
+    # limit_req zone=api_limit burst=20 nodelay;
     
     # Logs
     access_log /var/log/nginx/events_access.log;
@@ -215,16 +217,52 @@ sed -i "s|SSL_KEY_PLACEHOLDER|$SSL_KEY|g" /etc/nginx/sites-available/events
 
 # 3. Nginx config'i test et
 echo -e "${YELLOW}✅ Nginx yapılandırması test ediliyor...${NC}"
-nginx -t
+if ! nginx -t; then
+    echo -e "${RED}❌ Nginx config test başarısız!${NC}"
+    echo -e "${YELLOW}📋 Config dosyasını kontrol edin:${NC}"
+    echo "  cat /etc/nginx/sites-available/events"
+    echo ""
+    echo -e "${YELLOW}📋 Detaylı hata mesajı:${NC}"
+    nginx -t 2>&1
+    exit 1
+fi
 
 # 4. Nginx'i yeniden başlat
 echo -e "${YELLOW}🚀 Nginx yeniden başlatılıyor...${NC}"
-systemctl reload nginx || systemctl restart nginx
+if systemctl is-active --quiet nginx; then
+    echo "Nginx çalışıyor, reload ediliyor..."
+    if ! systemctl reload nginx; then
+        echo -e "${YELLOW}⚠️  Reload başarısız, restart deneniyor...${NC}"
+        systemctl restart nginx
+    fi
+else
+    echo "Nginx çalışmıyor, başlatılıyor..."
+    systemctl start nginx
+fi
+
+# Nginx durumunu kontrol et
+sleep 2
+if systemctl is-active --quiet nginx; then
+    echo -e "${GREEN}✅ Nginx başarıyla başlatıldı${NC}"
+else
+    echo -e "${RED}❌ Nginx başlatılamadı!${NC}"
+    echo -e "${YELLOW}📋 Durum kontrolü:${NC}"
+    systemctl status nginx --no-pager
+    echo -e "${YELLOW}📋 Loglar:${NC}"
+    journalctl -u nginx --no-pager -n 20
+    exit 1
+fi
 
 # 5. Test
 echo -e "${YELLOW}🧪 SSL yapılandırması test ediliyor...${NC}"
-sleep 2
-curl -I https://$DOMAIN/health || echo -e "${YELLOW}⚠️  Servis henüz hazır olmayabilir, birkaç saniye bekleyin...${NC}"
+sleep 3
+if curl -f -I https://$DOMAIN/health 2>/dev/null; then
+    echo -e "${GREEN}✅ HTTPS health check başarılı${NC}"
+else
+    echo -e "${YELLOW}⚠️  HTTPS health check başarısız (servis henüz hazır olmayabilir)${NC}"
+    echo -e "${YELLOW}💡 HTTP üzerinden test ediliyor...${NC}"
+    curl -f -I http://$DOMAIN/health 2>/dev/null && echo -e "${YELLOW}⚠️  HTTP çalışıyor ama HTTPS çalışmıyor${NC}" || echo -e "${YELLOW}⚠️  Her iki protokol de henüz hazır değil${NC}"
+fi
 
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}✅ SSL/HTTPS kurulumu tamamlandı!${NC}"

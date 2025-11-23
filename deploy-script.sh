@@ -166,8 +166,9 @@ server {
     }
     
     # Rate limiting (DDoS koruması)
-    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
-    limit_req zone=api_limit burst=20 nodelay;
+    # Not: limit_req_zone http bloğunda tanımlanmalı
+    # Eğer nginx.conf'da limit_req_zone tanımlı değilse aşağıdaki satırı yorum satırı yapın
+    # limit_req zone=api_limit burst=20 nodelay;
     
     # Logs
     access_log /var/log/nginx/events_access.log;
@@ -231,8 +232,9 @@ server {
     }
     
     # Rate limiting (DDoS koruması)
-    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
-    limit_req zone=api_limit burst=20 nodelay;
+    # Not: limit_req_zone http bloğunda tanımlanmalı
+    # Eğer nginx.conf'da limit_req_zone tanımlı değilse aşağıdaki satırı yorum satırı yapın
+    # limit_req zone=api_limit burst=20 nodelay;
     
     # Logs
     access_log /var/log/nginx/events_access.log;

@@ -99,18 +99,48 @@ jobs:
                 echo "✅ SSL sertifikası mevcut - Nginx HTTPS yapılandırması güncelleniyor..."
                 # Mevcut SSL sertifikasını kullanarak nginx'i yapılandır
                 if [ -f /var/www/event-finder/setup-ssl.sh ]; then
-                    bash /var/www/event-finder/setup-ssl.sh || {
-                        echo "⚠️  setup-ssl.sh çalıştırılamadı, manuel kontrol gerekebilir"
-                        systemctl reload nginx || systemctl restart nginx
-                    }
+                    chmod +x /var/www/event-finder/setup-ssl.sh
+                    if bash /var/www/event-finder/setup-ssl.sh; then
+                        echo "✅ SSL yapılandırması başarılı"
+                    else
+                        echo "⚠️  setup-ssl.sh çalıştırılamadı, nginx config'i manuel kontrol ediliyor..."
+                        # Nginx config test et
+                        if nginx -t; then
+                            echo "✅ Nginx config geçerli, nginx başlatılıyor..."
+                            systemctl start nginx || systemctl restart nginx
+                        else
+                            echo "❌ Nginx config hatası! Detaylar:"
+                            nginx -t 2>&1
+                            echo "⚠️  Nginx başlatılamadı, lütfen manuel kontrol edin"
+                        fi
+                    fi
                 else
                     echo "⚠️  setup-ssl.sh bulunamadı, nginx'i yeniden başlatıyoruz..."
-                    systemctl reload nginx || systemctl restart nginx
+                    if nginx -t; then
+                        systemctl start nginx || systemctl restart nginx
+                    else
+                        echo "❌ Nginx config hatası!"
+                        nginx -t 2>&1
+                    fi
                 fi
             else
                 echo "⚠️  SSL sertifikası bulunamadı - HTTP modunda çalışıyor"
                 echo "💡 HTTPS için sunucuda şu komutu çalıştırın: sudo bash /var/www/event-finder/setup-ssl.sh"
-                systemctl reload nginx || systemctl restart nginx
+                if nginx -t; then
+                    systemctl start nginx || systemctl restart nginx
+                else
+                    echo "❌ Nginx config hatası!"
+                    nginx -t 2>&1
+                fi
+            fi
+            
+            # Nginx durumunu kontrol et
+            sleep 2
+            if systemctl is-active --quiet nginx; then
+                echo "✅ Nginx çalışıyor"
+            else
+                echo "❌ Nginx çalışmıyor! Durum:"
+                systemctl status nginx --no-pager || true
             fi
             
             echo "✅ Deployment completed successfully!"
