@@ -1,39 +1,112 @@
-FROM python:3.10-slim
+name: Deploy to Server
 
-# Çalışma dizinini ayarla
-WORKDIR /app
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Manuel tetikleme için
 
-# 1. Gerekli sistem paketlerini yükle (C/C++ derleyicileri, XML kütüphaneleri)
-# Bu, lxml, numpy ve sentence-transformers gibi paketlerin kurulması için zorunludur.
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libxml2-dev \
-    libxslt-dev \
-    zlib1g-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# 2. PyTorch'un CPU versiyonunu önceden yükle (Sentense Transformers için)
-# Bu, büyük GPU bağımlılıklarının indirilmesini engeller.
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
-
-# 3. Bağımlılıkları kopyala ve yükle
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Model önbelleği için klasör ve ENV ayarı
-RUN mkdir -p /app/model_cache
-ENV HF_HOME=/app/model_cache
-
-# Tüm proje dosyalarını kopyala
-COPY . .
-
-# Ortam değişkenleri
-ENV FLASK_APP=events_backend.py
-ENV FLASK_ENV=production
-ENV PYTHONUNBUFFERED=1
-
-EXPOSE 5001
-
-# Başlatma komutu (events_backend.py dosyanı kullanır)
-CMD ["gunicorn", "--workers", "3", "--bind", "0.0.0.0:5001", "--timeout", "120", "events_backend:app"]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
+            
+            echo "🚀 Starting deployment..."
+            
+            # Proje dizinine git
+            cd /var/www/event-finder
+            
+            # Git repo kontrolü ve kodları çekme
+            if [ -d .git ]; then
+              echo "🔧 Configuring git safe directory..."
+              git config --global --add safe.directory /var/www/event-finder || true
+              
+              echo "📥 Fetching latest changes..."
+              git fetch origin main
+              echo "🔄 Hard reset to origin/main..."
+              git reset --hard origin/main
+              git clean -fd
+            else
+              echo "❌ Git repository bulunamadı! Lütfen sunucuda manuel clone yapın."
+              exit 1
+            fi
+            
+            # Docker için gerekli klasörlerin varlığından emin ol
+            echo "📁 Checking directories..."
+            mkdir -p model_cache
+            
+            # Docker Image Build
+            echo "🐳 Building Docker image..."
+            docker build -t event-finder-img .
+            
+            # Eski konteyneri durdur ve sil
+            echo "🛑 Stopping old container..."
+            docker stop event-finder || true
+            docker rm event-finder || true
+            
+            # Yeni konteyneri başlat
+            echo "🚀 Starting new container..."
+            docker run -d \
+              --name event-finder \
+              --restart always \
+              --network event-net \
+              -p 127.0.0.1:5001:5001 \
+              -e MONGO_URI="mongodb://mongodb:27017/" \
+              -v /var/www/event-finder/.env:/app/.env \
+              -v /var/www/event-finder/model_cache:/app/model_cache \
+              event-finder-img
+            
+            # Gereksiz eski imajları temizle (Disk tasarrufu)
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+            
+            # Servis durumunu kontrol et
+            echo "✅ Checking container status..."
+            sleep 5
+            if [ "$(docker inspect -f '{{.State.Running}}' event-finder)" = "true" ]; then
+                echo "Container is running!"
+            else
+                echo "❌ Container failed to start!"
+                docker logs event-finder
+                exit 1
+            fi
+            
+            # Health check (Local)
+            echo "🏥 Internal Health check..."
+            curl -f http://localhost:5001/health || echo "⚠️ Internal health check failed (service might still be initializing)"
+            
+            echo "✅ Deployment completed successfully!"
+          EOF
+      
+      - name: Verify deployment (Public)
+        run: |
+          echo "Waiting for service to stabilize..."
+          sleep 10
+          curl -f https://events.tugrul.app/health || echo "⚠️ Public health check failed"
+      
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Code deployed to server" >> $GITHUB_STEP_SUMMARY
+          echo "🐳 Docker image rebuilt and container restarted" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 Web: https://events.tugrul.app" >> $GITHUB_STEP_SUMMARY
+          echo "📊 API: https://events.tugrul.app/api" >> $GITHUB_STEP_SUMMARY
