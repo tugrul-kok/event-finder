@@ -34,9 +34,8 @@ jobs:
             # Proje dizinine git
             cd /var/www/event-finder
             
-            # Git repo kontrolü ve hard reset
+            # Git repo kontrolü ve kodları çekme
             if [ -d .git ]; then
-              # Git ownership sorununu çöz
               echo "🔧 Configuring git safe directory..."
               git config --global --add safe.directory /var/www/event-finder || true
               
@@ -46,68 +45,68 @@ jobs:
               git reset --hard origin/main
               git clean -fd
             else
-              echo "❌ Git repository bulunamadı!"
-              echo "İlk kurulum için: git clone https://github.com/tugrul-kok/event-finder.git /var/www/event-finder"
+              echo "❌ Git repository bulunamadı! Lütfen sunucuda manuel clone yapın."
               exit 1
             fi
             
-            # Virtual environment kontrolü ve aktif etme
-            if [ -d venv ]; then
-              echo "🐍 Virtual environment bulundu, aktif ediliyor..."
-              source venv/bin/activate
-              
-              # Requirements güncelle (eğer değiştiyse)
-              echo "📦 Updating Python packages..."
-              pip install -q --upgrade pip
-              pip install -q -r requirements.txt
-            else
-              echo "⚠️  Virtual environment bulunamadı, sistem Python kullanılıyor..."
-              echo "📦 Updating Python packages (system-wide)..."
-              pip3 install -q --upgrade pip
-              pip3 install -q -r requirements.txt
-            fi
+            # Docker için gerekli klasörlerin varlığından emin ol
+            echo "📁 Checking directories..."
+            mkdir -p model_cache
             
-            # events_backend.py'yi app.py olarak kopyala (eğer yoksa)
-            if [ ! -f app.py ] && [ -f events_backend.py ]; then
-              echo "📝 Creating app.py from events_backend.py..."
-              cp events_backend.py app.py
-            fi
+            # Docker Image Build
+            echo "🐳 Building Docker image..."
+            docker build -t event-finder-img .
             
-            # Dosya izinlerini düzelt
-            echo "🔧 Setting permissions..."
-            sudo chown -R www-data:www-data /var/www/event-finder
-            sudo chmod -R 755 /var/www/event-finder
+            # Eski konteyneri durdur ve sil
+            echo "🛑 Stopping old container..."
+            docker stop event-finder || true
+            docker rm event-finder || true
             
-            # RAG embeddings'i yeniden oluştur (opsiyonel, ilk sorguda otomatik oluşacak)
-            echo "🧠 RAG embeddings will be regenerated on next query or service restart"
+            # Yeni konteyneri başlat
+            echo "🚀 Starting new container..."
+            docker run -d \
+              --name event-finder \
+              --restart always \
+              --network event-net \
+              -p 127.0.0.1:5001:5001 \
+              -e MONGO_URI="mongodb://mongodb:27017/" \
+              -v /var/www/event-finder/.env:/app/.env \
+              -v /var/www/event-finder/model_cache:/app/model_cache \
+              event-finder-img
             
-            # Servisi yeniden başlat
-            echo "🔄 Restarting service..."
-            sudo systemctl restart events
+            # Gereksiz eski imajları temizle (Disk tasarrufu)
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
             
             # Servis durumunu kontrol et
-            echo "✅ Checking service status..."
-            sleep 3
-            sudo systemctl status events --no-pager || true
+            echo "✅ Checking container status..."
+            sleep 5
+            if [ "$(docker inspect -f '{{.State.Running}}' event-finder)" = "true" ]; then
+                echo "Container is running!"
+            else
+                echo "❌ Container failed to start!"
+                docker logs event-finder
+                exit 1
+            fi
             
-            # Health check
-            echo "🏥 Health check..."
-            curl -f http://localhost:5001/health || echo "⚠️ Health check failed (service might still be starting)"
+            # Health check (Local)
+            echo "🏥 Internal Health check..."
+            curl -f http://localhost:5001/health || echo "⚠️ Internal health check failed (service might still be initializing)"
             
-            echo "✅ Deployment completed!"
+            echo "✅ Deployment completed successfully!"
           EOF
       
-      - name: Verify deployment
+      - name: Verify deployment (Public)
         run: |
-          sleep 5
-          curl -f https://events.tugrul.app/health || echo "⚠️ Health check failed"
+          echo "Waiting for service to stabilize..."
+          sleep 10
+          curl -f https://events.tugrul.app/health || echo "⚠️ Public health check failed"
       
       - name: Deployment summary
         run: |
           echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ Code deployed to server" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Service restarted" >> $GITHUB_STEP_SUMMARY
+          echo "🐳 Docker image rebuilt and container restarted" >> $GITHUB_STEP_SUMMARY
           echo "🌐 Web: https://events.tugrul.app" >> $GITHUB_STEP_SUMMARY
           echo "📊 API: https://events.tugrul.app/api" >> $GITHUB_STEP_SUMMARY
-
