@@ -1,0 +1,60 @@
+# Python virtual environment (should be installed fresh in Docker)
+venv/
+env/
+ENV/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Git
+.git/
+.gitignore
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files (should be passed as env vars or secrets)
+.env
+.env.local
+.env.*.local
+env-file.sh
+
+# Documentation (not needed in container)
+*.md
+!README.md
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Test files (if any)
+tests/
+test_*.py
+*_test.py
+
