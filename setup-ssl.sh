@@ -114,11 +114,9 @@ echo "  Key: $SSL_KEY"
 # 2. Nginx config'ini HTTPS için güncelle
 echo -e "${YELLOW}🌐 Nginx yapılandırması güncelleniyor...${NC}"
 
-# SSL dosya yollarını escape et (sed için)
-SSL_CERT_ESCAPED=$(echo "$SSL_CERT" | sed 's/[\/&]/\\&/g')
-SSL_KEY_ESCAPED=$(echo "$SSL_KEY" | sed 's/[\/&]/\\&/g')
-
-cat > /etc/nginx/sites-available/events << NGINX_EOF
+# Heredoc delimiter'ını tırnaklı yaparak nginx değişkenlerinin shell tarafından expand edilmesini engelle
+# SSL sertifika yollarını sonra sed ile replace edeceğiz
+cat > /etc/nginx/sites-available/events << 'NGINX_EOF'
 # HTTP'den HTTPS'e yönlendirme
 server {
     listen 80;
@@ -131,7 +129,7 @@ server {
     
     # Tüm HTTP trafiğini HTTPS'e yönlendir
     location / {
-        return 301 https://\$server_name\$request_uri;
+        return 301 https://$server_name$request_uri;
     }
 }
 
@@ -141,8 +139,8 @@ server {
     server_name events.tugrul.app 65.21.182.26;
     
     # SSL sertifikaları (mevcut sertifika kullanılıyor)
-    ssl_certificate ${SSL_CERT_ESCAPED};
-    ssl_certificate_key ${SSL_KEY_ESCAPED};
+    ssl_certificate SSL_CERT_PLACEHOLDER;
+    ssl_certificate_key SSL_KEY_PLACEHOLDER;
     
     # SSL yapılandırması (güvenlik için)
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -210,6 +208,10 @@ server {
     error_log /var/log/nginx/events_error.log;
 }
 NGINX_EOF
+
+# SSL sertifika yollarını replace et
+sed -i "s|SSL_CERT_PLACEHOLDER|$SSL_CERT|g" /etc/nginx/sites-available/events
+sed -i "s|SSL_KEY_PLACEHOLDER|$SSL_KEY|g" /etc/nginx/sites-available/events
 
 # 3. Nginx config'i test et
 echo -e "${YELLOW}✅ Nginx yapılandırması test ediliyor...${NC}"

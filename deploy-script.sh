@@ -82,7 +82,7 @@ fi
 # Nginx config'i oluştur
 if [ -n "$SSL_CERT" ] && [ -f "$SSL_CERT" ]; then
     # HTTPS yapılandırması
-    cat > /etc/nginx/sites-available/events << NGINX_EOF
+    cat > /etc/nginx/sites-available/events << 'NGINX_EOF'
 # HTTP'den HTTPS'e yönlendirme
 server {
     listen 80;
@@ -95,7 +95,7 @@ server {
     
     # Tüm HTTP trafiğini HTTPS'e yönlendir
     location / {
-        return 301 https://\$server_name\$request_uri;
+        return 301 https://$server_name$request_uri;
     }
 }
 
@@ -105,8 +105,8 @@ server {
     server_name events.tugrul.app 65.21.182.26;
     
     # SSL sertifikaları
-    ssl_certificate ${SSL_CERT};
-    ssl_certificate_key ${SSL_KEY};
+    ssl_certificate SSL_CERT_PLACEHOLDER;
+    ssl_certificate_key SSL_KEY_PLACEHOLDER;
     
     # SSL yapılandırması
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -127,33 +127,33 @@ server {
     location / {
         proxy_pass http://127.0.0.1:5001;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
     
     # API endpoints
     location /api {
         proxy_pass http://127.0.0.1:5001;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         
         # CORS headers
         add_header 'Access-Control-Allow-Origin' '*' always;
         add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
         add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization' always;
         
-        if (\$request_method = 'OPTIONS') {
+        if ($request_method = 'OPTIONS') {
             return 204;
         }
     }
@@ -161,12 +161,12 @@ server {
     # Health check endpoint
     location /health {
         proxy_pass http://127.0.0.1:5001;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
     }
     
     # Rate limiting (DDoS koruması)
-    limit_req_zone \$binary_remote_addr zone=api_limit:10m rate=10r/s;
+    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
     limit_req zone=api_limit burst=20 nodelay;
     
     # Logs
@@ -174,6 +174,10 @@ server {
     error_log /var/log/nginx/events_error.log;
 }
 NGINX_EOF
+
+    # SSL sertifika yollarını replace et
+    sed -i "s|SSL_CERT_PLACEHOLDER|$SSL_CERT|g" /etc/nginx/sites-available/events
+    sed -i "s|SSL_KEY_PLACEHOLDER|$SSL_KEY|g" /etc/nginx/sites-available/events
 else
     # Sadece HTTP yapılandırması (SSL yoksa)
     echo -e "${YELLOW}⚠️  SSL sertifikası bulunamadı, sadece HTTP yapılandırması yapılıyor...${NC}"
