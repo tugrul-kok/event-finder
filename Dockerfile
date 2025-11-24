@@ -33,6 +33,12 @@ ENV FLASK_APP=events_backend.py
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
+# PyTorch bellek optimizasyonu (RAM tasarrufu için kritik)
+ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+ENV OMP_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
+ENV NUMEXPR_NUM_THREADS=1
+
 EXPOSE 5001
 
 # SON SATIR: Worker sayısını 1, Thread sayısını 4 olarak ayarla (RAM Tasarrufu için kritik)
