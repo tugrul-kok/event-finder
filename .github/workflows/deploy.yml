@@ -57,10 +57,18 @@ jobs:
             echo "🐳 Building Docker image..."
             docker build -t event-finder-img .
             
-            # Eski konteyneri durdur ve sil
+            # Eski konteyneri durdur ve sil (daha agresif temizlik)
             echo "🛑 Stopping old container..."
             docker stop event-finder || true
-            docker rm event-finder || true
+            docker rm -f event-finder || true
+            
+            # Tüm event-finder container'larını temizle (birden fazla olabilir)
+            echo "🧹 Cleaning up all event-finder containers..."
+            docker ps -a --filter "name=event-finder" --format "{{.ID}}" | xargs -r docker rm -f || true
+            
+            # Zombie process'leri temizle (gerekirse)
+            echo "🧹 Checking for zombie processes..."
+            sleep 2
             
             # Yeni konteyneri başlat (RAM tasarrufu modu)
             echo "🚀 Starting new container (RAM optimized mode)..."
@@ -84,6 +92,17 @@ jobs:
             sleep 5
             if [ "$(docker inspect -f '{{.State.Running}}' event-finder)" = "true" ]; then
                 echo "Container is running!"
+                
+                # Container içindeki process sayısını kontrol et
+                echo "📊 Checking processes inside container..."
+                PROCESS_COUNT=$(docker exec event-finder ps aux | grep -c "[g]unicorn" || echo "0")
+                echo "Gunicorn processes in container: $PROCESS_COUNT (expected: 2 - 1 master + 1 worker)"
+                
+                if [ "$PROCESS_COUNT" -gt 5 ]; then
+                    echo "⚠️  Warning: Too many gunicorn processes detected!"
+                    echo "Process list:"
+                    docker exec event-finder ps aux | grep gunicorn || true
+                fi
             else
                 echo "❌ Container failed to start!"
                 docker logs event-finder

@@ -75,26 +75,25 @@ class FAISSRetriever:
     """
     FAISS vektor database + Sentence-Transformers embedding modeli ile semantik arama
     
-    ✅ Embedding Model: paraphrase-multilingual-MiniLM-L12-v2 (Türkçe desteği)
+    ✅ Embedding Model: paraphrase-multilingual-MiniLM-L12-v2 (Türkçe desteği - varsayılan)
     ✅ Vektor Database: FAISS (Facebook AI Similarity Search)
     ✅ RAM Optimizasyonu: Model singleton pattern ile paylaşılıyor
+    ✅ Türkçe Performans: Multilingual model Türkçe sorgular için optimize edilmiş
     """
     
     def __init__(self, events, model_name=None):
         """
         Args:
             events: Etkinlik listesi (MongoDB cursor veya list)
-            model_name: Huggingface embedding model (varsayılan: daha küçük model - RAM tasarrufu için)
+            model_name: Huggingface embedding model (varsayılan: Türkçe destekleyen model)
         """
-        # Daha küçük model kullan (RAM tasarrufu için)
-        # paraphrase-multilingual-MiniLM-L12-v2: ~120MB, 384 dim
-        # all-MiniLM-L6-v2: ~80MB, 384 dim (İngilizce odaklı ama çok daha küçük)
-        # Türkçe için: paraphrase-multilingual-MiniLM-L12-v2 (daha büyük ama Türkçe desteği var)
+        # Türkçe destekleyen model kullan (performans için kritik)
+        # paraphrase-multilingual-MiniLM-L12-v2: ~120MB, 384 dim, Türkçe desteği var
+        # all-MiniLM-L6-v2: ~80MB, 384 dim (İngilizce odaklı, Türkçe için performans düşük)
         if model_name is None:
-            # RAM tasarrufu için daha küçük model kullan
-            # Eğer Türkçe desteği kritikse, paraphrase-multilingual-MiniLM-L12-v2 kullan
-            model_name = os.getenv('EMBEDDING_MODEL', 'sentence-transformers/all-MiniLM-L6-v2')
-            # Türkçe desteği için: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'
+            # Varsayılan olarak Türkçe destekleyen model kullan
+            # Environment variable ile override edilebilir
+            model_name = os.getenv('EMBEDDING_MODEL', 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
         # Convert MongoDB cursor to list if needed
         if hasattr(events, '__iter__') and not isinstance(events, (list, tuple)):
             self.events = list(events)
