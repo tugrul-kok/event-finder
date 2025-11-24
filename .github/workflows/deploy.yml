@@ -62,8 +62,8 @@ jobs:
             docker stop event-finder || true
             docker rm event-finder || true
             
-            # Yeni konteyneri başlat
-            echo "🚀 Starting new container..."
+            # Yeni konteyneri başlat (RAM tasarrufu modu)
+            echo "🚀 Starting new container (RAM optimized mode)..."
             docker run -d \
               --name event-finder \
               --restart always \
@@ -72,7 +72,8 @@ jobs:
               -e MONGO_URI="mongodb://mongodb:27017/" \
               -v /var/www/event-finder/.env:/app/.env \
               -v /var/www/event-finder/model_cache:/app/model_cache \
-              event-finder-img
+              event-finder-img \
+              gunicorn --workers 1 --threads 4 --bind 0.0.0.0:5001 events_backend:app
             
             # Gereksiz eski imajları temizle (Disk tasarrufu)
             echo "🧹 Cleaning up old images..."

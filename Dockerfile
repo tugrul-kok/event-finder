@@ -35,5 +35,5 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 5001
 
-# Başlatma komutu (events_backend.py dosyanı kullanır)
-CMD ["gunicorn", "--workers", "3", "--bind", "0.0.0.0:5001", "--timeout", "120", "events_backend:app"]
+# SON SATIR: Worker sayısını 1, Thread sayısını 4 olarak ayarla (RAM Tasarrufu için kritik)
+CMD ["gunicorn", "--workers", "1", "--threads", "4", "--bind", "0.0.0.0:5001", "events_backend:app"]
