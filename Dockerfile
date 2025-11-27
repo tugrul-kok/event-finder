@@ -3,14 +3,53 @@ FROM python:3.10-slim
 # Çalışma dizinini ayarla
 WORKDIR /app
 
-# 1. Gerekli sistem paketlerini yükle (C/C++ derleyicileri, XML kütüphaneleri)
-# Bu, lxml, numpy ve sentence-transformers gibi paketlerin kurulması için zorunludur.
+# 1. Gerekli sistem paketlerini yükle (C/C++ derleyicileri, XML kütüphaneleri, Chrome için)
+# Bu, lxml, numpy, sentence-transformers ve Selenium için gerekli
 RUN apt-get update && apt-get install -y \
     build-essential \
     libxml2-dev \
     libxslt-dev \
     zlib1g-dev \
     curl \
+    wget \
+    gnupg \
+    unzip \
+    # Chrome ve ChromeDriver için gerekli paketler
+    ca-certificates \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libc6 \
+    libcairo2 \
+    libcups2 \
+    libdbus-1-3 \
+    libexpat1 \
+    libfontconfig1 \
+    libgbm1 \
+    libgcc1 \
+    libglib2.0-0 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libstdc++6 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxrandr2 \
+    libxrender1 \
+    libxss1 \
+    libxtst6 \
+    lsb-release \
+    xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. PyTorch'un CPU versiyonunu önceden yükle (Sentense Transformers için)
@@ -20,6 +59,14 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 # 3. Bağımlılıkları kopyala ve yükle
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# 4. Chrome ve ChromeDriver kurulumu (Selenium için - opsiyonel, Biletix scraping için)
+# Not: Eğer Selenium kullanılmayacaksa bu adımı atlayabilirsiniz
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
 
 # Model önbelleği için klasör ve ENV ayarı
 RUN mkdir -p /app/model_cache

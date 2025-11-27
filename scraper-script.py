@@ -15,6 +15,7 @@ import logging
 import re
 import time
 
+# .env dosyasından environment variable'ları yükle
 load_dotenv()
 
 # Logging ayarları
@@ -32,9 +33,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# MongoDB bağlantısı
+# MongoDB bağlantısı (.env'den okunur)
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
+
+# Gemini API Key (.env dosyasından okunur)
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if not GEMINI_API_KEY:
+    logger.warning("⚠️  GEMINI_API_KEY .env dosyasında bulunamadı")
 
 try:
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
@@ -432,6 +437,260 @@ def scrape_bubilet():
     
     return events
 
+def scrape_biletix():
+    """Biletix sitesinden Antalya etkinliklerini çeker (Selenium ile dinamik içerik)"""
+    logger.info("🔄 Biletix scraping başladı (Antalya)...")
+    events = []
+    
+    base_url = "https://www.biletix.com"
+    # Antalya için özel arama sayfası
+    target_url = 'https://www.biletix.com/search/TURKIYE/tr?category_sb=-1&date_sb=-1&city_sb=Antalya#!city_sb:Antalya'
+    
+    # Selenium ile dinamik içerik yükleme
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.chrome.options import Options
+        from selenium.common.exceptions import TimeoutException, NoSuchElementException
+        from webdriver_manager.chrome import ChromeDriverManager
+        from selenium.webdriver.chrome.service import Service
+    except ImportError:
+        logger.warning("⚠️  Selenium bulunamadı, Biletix scraping atlanıyor. 'pip install selenium webdriver-manager' ile yükleyin.")
+        return events
+    
+    driver = None
+    try:
+        logger.info(f"📡 Biletix Antalya çekiliyor (Selenium ile): {target_url}")
+        
+        # Headless Chrome ayarları
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--window-size=1920,1080')
+        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        
+        # ChromeDriver'ı otomatik yükle
+        try:
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+        except Exception as e:
+            logger.warning(f"⚠️  ChromeDriver yüklenemedi: {e}. Sistem ChromeDriver kullanılacak.")
+            driver = webdriver.Chrome(options=chrome_options)
+        
+        # Sayfayı yükle
+        driver.get(target_url)
+        
+        # Sayfa yüklenmesini bekle
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        )
+        
+        logger.info("   → Sayfa yüklendi, dinamik içerik bekleniyor...")
+        time.sleep(5)  # JavaScript'in çalışması için bekle
+        
+        # Sayfayı scroll et (lazy loading için)
+        logger.info("   → Sayfa scroll ediliyor...")
+        for i in range(3):
+            driver.execute_script(f"window.scrollTo(0, {(i+1) * 800});")
+            time.sleep(2)
+        
+        # Son scroll
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(3)
+        
+        # Etkinlik kartlarını bul
+        event_cards = []
+        selectors = [
+            ".flexibleEvent",
+            ".searchResultEvent",
+            ".listevent",
+            ".event",
+            ".card",
+            "[class*='event']",
+            "[class*='Event']"
+        ]
+        
+        for selector in selectors:
+            try:
+                found = driver.find_elements(By.CSS_SELECTOR, selector)
+                if found:
+                    event_cards = found
+                    logger.info(f"   → {selector} ile {len(found)} etkinlik kartı bulundu")
+                    break
+            except:
+                continue
+        
+        if not event_cards:
+            logger.warning("   ⚠️  Etkinlik kartı bulunamadı, alternatif yöntem deneniyor...")
+            # Alternatif: Tüm linkleri kontrol et
+            all_links = driver.find_elements(By.TAG_NAME, "a")
+            event_cards = []
+            for link in all_links:
+                href = link.get_attribute('href')
+                if href and ('/etkinlik/' in href or '/event/' in href):
+                    event_cards.append(link)
+            logger.info(f"   → Link bazlı arama ile {len(event_cards)} potansiyel etkinlik bulundu")
+        
+        seen_urls = set()
+        
+        for i, card in enumerate(event_cards[:30]):  # İlk 30 etkinlik
+            try:
+                logger.debug(f"   → Etkinlik {i+1} işleniyor...")
+                event_data = {
+                    'title': '',
+                    'date': '',
+                    'time': '',
+                    'venue': '',
+                    'address': '',
+                    'city': 'antalya',
+                    'price': '',
+                    'description': '',
+                    'url': '',
+                    'source': 'Biletix'
+                }
+                
+                # URL bul (Selenium element)
+                try:
+                    link_elem = card
+                    if card.tag_name != 'a':
+                        try:
+                            link_elem = card.find_element(By.TAG_NAME, 'a')
+                        except:
+                            link_elem = None
+                    
+                    if link_elem:
+                        href = link_elem.get_attribute('href')
+                        if href:
+                            full_url = href if href.startswith('http') else urljoin(base_url, href)
+                            event_data['url'] = full_url
+                            if event_data['url'] in seen_urls:
+                                continue
+                            seen_urls.add(event_data['url'])
+                except:
+                    pass
+                
+                # Başlık bul - farklı selektörler dene (Selenium)
+                title_selectors = [
+                    '.event-title', '.title', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                    '[data-testid*="title"]', '.event-name', '.name', '.heading',
+                    '[class*="title"]', '[class*="Title"]'
+                ]
+                
+                for selector in title_selectors:
+                    try:
+                        title_elem = card.find_element(By.CSS_SELECTOR, selector)
+                        title_text = clean_text(title_elem.text)
+                        if title_text and len(title_text) > 3:
+                            event_data['title'] = title_text
+                            break
+                    except:
+                        continue
+                
+                # Eğer başlık bulunamazsa, link metnini kullan
+                if not event_data['title'] and link_elem:
+                    try:
+                        link_text = clean_text(link_elem.text)
+                        if link_text and len(link_text) > 3:
+                            event_data['title'] = link_text
+                    except:
+                        pass
+                
+                # Tarih bul (Selenium)
+                date_selectors = [
+                    '.event-date', '.date', '.event-time', '.time', '.datetime',
+                    '[data-testid*="date"]', '[class*="date"]', '[class*="Date"]'
+                ]
+                
+                for selector in date_selectors:
+                    try:
+                        date_elem = card.find_element(By.CSS_SELECTOR, selector)
+                        date_text = clean_text(date_elem.text)
+                        if date_text:
+                            # Parse tarih ISO formatına
+                            parsed = parse_date_from_text(date_text)
+                            if parsed:
+                                event_data['date'] = parsed
+                            else:
+                                event_data['date'] = date_text
+                            break
+                    except:
+                        continue
+                
+                # Konum/Venue bul (Selenium)
+                location_selectors = [
+                    '.event-location', '.location', '.venue', '.place', '.mekan',
+                    '[data-testid*="location"]', '[class*="location"]', '[class*="venue"]'
+                ]
+                
+                for selector in location_selectors:
+                    try:
+                        location_elem = card.find_element(By.CSS_SELECTOR, selector)
+                        location_text = clean_text(location_elem.text)
+                        if location_text:
+                            event_data['venue'] = location_text
+                            break
+                    except:
+                        continue
+                
+                # Fiyat bul (Selenium)
+                price_selectors = [
+                    '.event-price', '.price', '.ticket-price', '.fiyat', '.cost',
+                    '[data-testid*="price"]', '[class*="price"]', '[class*="Price"]'
+                ]
+                
+                for selector in price_selectors:
+                    try:
+                        price_elem = card.find_element(By.CSS_SELECTOR, selector)
+                        price_text = clean_text(price_elem.text)
+                        if price_text:
+                            event_data['price'] = price_text
+                            break
+                    except:
+                        continue
+                
+                # Eğer hiçbir şey bulunamazsa, kartın tüm metnini analiz et
+                if not event_data['title']:
+                    try:
+                        all_text = clean_text(card.text)
+                        if all_text:
+                            lines = [line.strip() for line in all_text.split('\n') if line.strip()]
+                            if lines:
+                                # En uzun satırı başlık olarak kullan
+                                event_data['title'] = max(lines, key=len)
+                    except:
+                        pass
+                
+                # Gereksiz linkleri filtrele
+                if event_data['title'] and any(skip in event_data['title'].lower() for skip in ['tümünü', 'müşteri hizmet', 'keşfet', 'daha fazla']):
+                    continue
+                
+                if event_data['title'] and len(event_data['title']) > 3:
+                    events.append(event_data)
+                    logger.info(f"   ✅ Etkinlik {len(events)}: {event_data['title'][:50]}...")
+            
+            except Exception as e:
+                logger.debug(f"Biletix kart işleme hatası: {e}")
+                continue
+        
+        logger.info(f"✅ Biletix'ten {len(events)} etkinlik çekildi")
+        
+    except Exception as e:
+        logger.error(f"❌ Biletix scraping hatası: {e}")
+        import traceback
+        logger.debug(traceback.format_exc())
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except:
+                pass
+    
+    return events
+
 # ============ PROCESS AND SAVE ============
 
 def process_and_save_events(raw_events):
@@ -540,6 +799,13 @@ def run_scraper():
         all_events.extend(bubilet_events)
     except Exception as e:
         logger.error(f"BUBilet scraping hatası: {e}")
+    
+    # Biletix'ten çek
+    try:
+        biletix_events = scrape_biletix()
+        all_events.extend(biletix_events)
+    except Exception as e:
+        logger.error(f"Biletix scraping hatası: {e}")
     
     # Veritabanına kaydet
     if all_events:
